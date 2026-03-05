@@ -4,6 +4,7 @@ const express = require('express');
 const Joi = require('joi');
 const { optionalAuth } = require('../middleware/auth');
 const { supabaseAdmin } = require('../../utils/supabase');
+const venueService = require('../../services/venues');
 
 const router = express.Router();
 
@@ -13,21 +14,19 @@ const nearbySchema = Joi.object({
   radius: Joi.number().positive().max(5000).default(500),
 });
 
-// GET /venues/nearby
+// GET /venues/nearby — fetch from Foursquare (cached in DB)
 router.get('/nearby', optionalAuth, async (req, res, next) => {
   try {
     const { error, value } = nearbySchema.validate(req.query);
     if (error) return res.status(400).json({ error: 'VALIDATION_ERROR', message: error.message });
 
-    const { data: venues, error: dbError } = await supabaseAdmin.rpc('get_nearby_venues', {
-      p_lat: value.lat,
-      p_lng: value.lng,
-      p_radius_m: value.radius,
+    const venues = await venueService.getNearbyVenues({
+      latitude: value.lat,
+      longitude: value.lng,
+      radiusM: value.radius,
     });
 
-    if (dbError) return next(dbError);
-
-    return res.json({ venues: venues || [] });
+    return res.json({ venues });
   } catch (err) {
     return next(err);
   }
