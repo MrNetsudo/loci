@@ -47,7 +47,25 @@ app.use(rateLimit({
   message: { error: 'RATE_LIMITED', retry_after_seconds: 60 },
 }));
 
-// ── Health check ──────────────────────────────────────────
+// ── Root + Health check ───────────────────────────────────
+app.get('/', (_req, res) => {
+  res.json({
+    app: 'LOCI',
+    version: process.env.LOCI_API_VERSION || 'v1',
+    status: 'online',
+    docs: 'https://github.com/MrNetsudo/loci',
+    endpoints: {
+      health: '/health',
+      auth: '/api/v1/auth',
+      presence: '/api/v1/presence',
+      venues: '/api/v1/venues',
+      rooms: '/api/v1/rooms',
+      messages: '/api/v1/messages',
+      users: '/api/v1/users',
+    },
+  });
+});
+
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', app: 'LOCI', version: process.env.LOCI_API_VERSION || 'v1' });
 });

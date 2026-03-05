@@ -5,6 +5,7 @@ const logger = require('../../utils/logger');
 const notFound = (req, res, next) => {
   const err = new Error(`Not Found — ${req.originalUrl}`);
   err.status = 404;
+  err.code = 'NOT_FOUND';
   next(err);
 };
 
