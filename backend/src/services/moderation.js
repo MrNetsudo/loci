@@ -19,6 +19,11 @@ class ModerationService {
    * Returns { allowed: boolean, status: string, scores: object }
    */
   async moderateMessage({ content, userId, roomId }) {
+    // If no OpenAI key configured, fall through with basic keyword check only
+    if (!config.openai.apiKey) {
+      return this._basicModerate(content);
+    }
+
     try {
       const response = await openai.moderations.create({ input: content });
       const result = response.results[0];
@@ -130,6 +135,22 @@ class ModerationService {
 
       logger.info('User auto-muted', { userId, muteUntil });
     }
+  }
+
+  /**
+   * Basic keyword-only moderation used when OpenAI is not configured.
+   * Blocks only the most obvious slurs/spam — good enough for dev/MVP.
+   */
+  _basicModerate(content) {
+    const lower = content.toLowerCase();
+    const blocked = ['nigger', 'faggot', 'kys', 'kill yourself'].some((w) => lower.includes(w));
+    return {
+      allowed: !blocked,
+      status: blocked ? MODERATION_ACTIONS.BLOCK : MODERATION_ACTIONS.PASS,
+      scores: {},
+      flaggedCategories: blocked ? ['hate'] : [],
+      maxScore: 0,
+    };
   }
 
   async _logModerationAction({ userId, roomId, messageId, action, reason, triggeredBy, aiScores, durationMins }) {
