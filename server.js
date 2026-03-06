@@ -717,6 +717,21 @@ function checkWeeklyReport() {
 }
 setInterval(checkWeeklyReport, 60 * 60 * 1000);
 
+// ── Client Portal ─────────────────────────────────────────────────────────────
+function requireClient(req,res,next){if(req.session?.clientId)return next();res.redirect("/client/login")}
+app.get("/client/login",(req,res)=>res.sendFile(path.join(__dirname,"views/client-login.html")));
+app.post("/client/login",(req,res)=>{req.session.clientId=req.body.email;res.redirect("/client/portal")});
+app.get("/client/portal",requireClient,(req,res)=>res.sendFile(path.join(__dirname,"views/client-portal.html")));
+app.get("/client/tickets",requireClient,(req,res)=>res.sendFile(path.join(__dirname,"views/client-tickets.html")));
+app.get("/client/invoices",requireClient,(req,res)=>res.sendFile(path.join(__dirname,"views/client-invoices.html")));
+app.get("/client/projects",requireClient,(req,res)=>res.sendFile(path.join(__dirname,"views/client-projects.html")));
+app.get("/client/logout",(req,res)=>{req.session.destroy();res.redirect("/client/login")});
+app.get("/api/client/stats",requireClient,(req,res)=>res.json({activeProjects:3,openTickets:2,pendingInvoices:1,nextMeeting:"Mon Mar 9, 2:00 PM"}));
+app.get("/api/client/tickets",requireClient,(req,res)=>res.json({tickets:[{id:"TKT-001",subject:"VPN issue",status:"In Progress",priority:"High",created:"2026-03-01"},{id:"TKT-002",subject:"New user setup",status:"Open",priority:"Normal",created:"2026-03-04"}]}));
+app.post("/api/client/tickets",requireClient,(req,res)=>res.json({ok:true,id:"TKT-"+Date.now()}));
+app.get("/api/client/invoices",requireClient,(req,res)=>res.json({invoices:[{id:"INV-001",amount:2500,date:"2026-03-01",status:"Paid"},{id:"INV-002",amount:1800,date:"2026-03-15",status:"Unpaid"}]}));
+app.get("/api/client/projects",requireClient,(req,res)=>res.json({projects:[{name:"Network Upgrade",status:"In Progress",progress:65,eta:"2026-04-01"},{name:"Security Audit",status:"Planning",progress:10,eta:"2026-05-01"}]}));
+
 app.listen(PORT, () => console.log(`✓ NetSudo Admin running on port ${PORT}`));
 
 // ── Resend Email Helper ───────────────────────────────────────────────────────

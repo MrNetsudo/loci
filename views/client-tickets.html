@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tickets — Client Portal — NetSudo</title>
+  <link rel="stylesheet" href="/admin/css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    :root { --accent: #6C63FF; --accent-hover: #5a52e0; }
+    .nav-item.active { background: #6C63FF; }
+    .badge-open       { background: rgba(59,130,246,0.12); color: #3b82f6; }
+    .badge-inprogress { background: rgba(245,158,11,0.12); color: #f59e0b; }
+    .badge-resolved   { background: rgba(16,185,129,0.12); color: #10b981; }
+    .badge-closed     { background: rgba(107,114,128,0.12); color: #6b7280; }
+    .badge-high   { background: rgba(239,68,68,0.12); color: #ef4444; }
+    .badge-normal { background: rgba(59,130,246,0.12); color: #3b82f6; }
+    .badge-low    { background: rgba(107,114,128,0.12); color: #6b7280; }
+    .new-ticket-form {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    .new-ticket-form.show { display: block; }
+    .btn-primary { background: #6C63FF; }
+    .btn-primary:hover { background: #5a52e0; box-shadow: 0 4px 14px rgba(108,99,255,0.35); }
+    .form-control:focus { border-color: #6C63FF; box-shadow: 0 0 0 3px rgba(108,99,255,0.12); }
+    .toast-wrap { position: fixed; bottom: 24px; right: 24px; z-index: 1000; }
+    .toast-msg-box {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 12px 18px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      font-size: 13.5px; color: var(--accent-green);
+      display: flex; align-items: center; gap: 8px;
+      opacity: 0; transform: translateY(10px);
+      transition: all 0.25s ease;
+    }
+    .toast-msg-box.show { opacity: 1; transform: translateY(0); }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <div class="sidebar-overlay" onclick="document.querySelector('.app-layout').classList.remove('sidebar-open')"></div>
+    <aside id="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-icon" style="background:#6C63FF"><i class="fas fa-shield-halved" style="color:#fff;font-size:14px"></i></div>
+        <div>
+          <div class="brand-text">NetSudo</div>
+          <div class="brand-sub">CLIENT PORTAL</div>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="/client/portal" class="nav-item"><span class="nav-icon"><i class="fas fa-grid-2"></i></span><span class="nav-text">Portal</span></a>
+        <a href="/client/tickets" class="nav-item active"><span class="nav-icon"><i class="fas fa-ticket"></i></span><span class="nav-text">Tickets</span></a>
+        <a href="/client/invoices" class="nav-item"><span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span><span class="nav-text">Invoices</span></a>
+        <a href="/client/projects" class="nav-item"><span class="nav-icon"><i class="fas fa-diagram-project"></i></span><span class="nav-text">Projects</span></a>
+      </nav>
+      <div class="sidebar-footer">
+        <a href="/client/logout" class="nav-item" style="color:rgba(255,255,255,0.4)"><span class="nav-icon"><i class="fas fa-arrow-right-from-bracket"></i></span><span class="nav-text">Logout</span></a>
+      </div>
+    </aside>
+
+    <div class="main-wrapper">
+      <header id="topbar">
+        <div class="topbar-left">
+          <button class="sidebar-toggle" onclick="document.querySelector('.app-layout').classList.toggle('sidebar-open')"><i class="fas fa-bars"></i></button>
+          <span class="page-title">Support Tickets</span>
+        </div>
+        <div class="topbar-right">
+          <button class="btn btn-primary" onclick="document.getElementById('newTicketForm').classList.toggle('show')">
+            <i class="fas fa-plus"></i> New Ticket
+          </button>
+        </div>
+      </header>
+
+      <main class="main-content">
+        <div id="newTicketForm" class="new-ticket-form">
+          <h3 style="font-size:15px;font-weight:600;margin-bottom:16px;color:var(--text-primary)">
+            <i class="fas fa-plus-circle" style="color:#6C63FF;margin-right:6px"></i> Submit New Ticket
+          </h3>
+          <form id="ticketForm">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Subject</label>
+                <input type="text" class="form-control" id="tSubject" placeholder="Brief description of the issue" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Priority</label>
+                <select class="form-control" id="tPriority">
+                  <option value="Normal">Normal</option>
+                  <option value="High">High</option>
+                  <option value="Low">Low</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Description</label>
+              <textarea class="form-control" id="tDesc" rows="3" placeholder="Provide details about your issue..."></textarea>
+            </div>
+            <div style="display:flex;gap:10px;justify-content:flex-end">
+              <button type="button" class="btn btn-secondary" onclick="document.getElementById('newTicketForm').classList.remove('show')">Cancel</button>
+              <button type="submit" class="btn btn-primary"><i class="fas fa-paper-plane"></i> Submit Ticket</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title"><i class="fas fa-ticket" style="margin-right:6px;color:#6C63FF"></i> Your Tickets</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Ticket ID</th>
+                  <th>Subject</th>
+                  <th>Status</th>
+                  <th>Priority</th>
+                  <th>Date Opened</th>
+                </tr>
+              </thead>
+              <tbody id="ticketBody">
+                <tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">Loading tickets...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="toast-wrap"><div class="toast-msg-box" id="toast"></div></div>
+
+  <script>
+    function statusBadge(s) {
+      const cls = s === 'Open' ? 'badge-open' : s === 'In Progress' ? 'badge-inprogress' : s === 'Resolved' ? 'badge-resolved' : 'badge-closed';
+      return `<span class="badge ${cls}">${s}</span>`;
+    }
+    function priorityBadge(p) {
+      const cls = p === 'High' ? 'badge-high' : p === 'Low' ? 'badge-low' : 'badge-normal';
+      return `<span class="badge ${cls}">${p}</span>`;
+    }
+    function fmtDate(d) {
+      return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.innerHTML = `<i class="fas fa-check-circle"></i> ${msg}`;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    async function loadTickets() {
+      try {
+        const r = await fetch('/api/client/tickets');
+        const d = await r.json();
+        const tb = document.getElementById('ticketBody');
+        if (!d.tickets.length) {
+          tb.innerHTML = '<tr><td colspan="5" class="empty-state" style="padding:32px"><div class="empty-icon"><i class="fas fa-ticket"></i></div><div class="empty-text">No tickets yet</div></td></tr>';
+          return;
+        }
+        tb.innerHTML = d.tickets.map(t => `
+          <tr>
+            <td class="td-mono">${t.id}</td>
+            <td>${t.subject}</td>
+            <td>${statusBadge(t.status)}</td>
+            <td>${priorityBadge(t.priority)}</td>
+            <td class="td-muted">${fmtDate(t.created)}</td>
+          </tr>
+        `).join('');
+      } catch (e) {
+        document.getElementById('ticketBody').innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--accent-red)">Failed to load tickets</td></tr>';
+      }
+    }
+
+    document.getElementById('ticketForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const subject = document.getElementById('tSubject').value.trim();
+      const priority = document.getElementById('tPriority').value;
+      const description = document.getElementById('tDesc').value.trim();
+      if (!subject) return;
+      try {
+        const r = await fetch('/api/client/tickets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subject, priority, description })
+        });
+        const d = await r.json();
+        if (d.ok) {
+          showToast(`Ticket ${d.id} created successfully`);
+          document.getElementById('ticketForm').reset();
+          document.getElementById('newTicketForm').classList.remove('show');
+          loadTickets();
+        }
+      } catch (err) { console.error(err); }
+    });
+
+    loadTickets();
+  </script>
+</body>
+</html>

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — Client Portal — NetSudo</title>
+  <link rel="stylesheet" href="/admin/css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    :root {
+      --accent: #6C63FF;
+      --accent-hover: #5a52e0;
+    }
+    .nav-item.active { background: #6C63FF; }
+    .stat-card.purple::after { background: #6C63FF; }
+    .stat-card.cyan::after { background: #06b6d4; }
+    .stat-card.amber::after { background: #f59e0b; }
+    .stat-card.green::after { background: #10b981; }
+    .welcome-banner {
+      background: linear-gradient(135deg, #6C63FF 0%, #4834d4 100%);
+      border-radius: var(--radius);
+      padding: 28px 32px;
+      margin-bottom: 24px;
+      color: #fff;
+    }
+    .welcome-banner h2 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+    .welcome-banner p { font-size: 13.5px; opacity: 0.85; }
+    .quick-actions { display: flex; flex-direction: column; gap: 8px; }
+    .quick-action {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-size: 13.5px; font-weight: 500;
+      transition: all var(--transition);
+      cursor: pointer;
+    }
+    .quick-action:hover { border-color: #6C63FF; color: #6C63FF; background: rgba(108,99,255,0.06); }
+    .quick-action i { width: 18px; text-align: center; color: #6C63FF; }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <div class="sidebar-overlay" onclick="document.querySelector('.app-layout').classList.remove('sidebar-open')"></div>
+    <aside id="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-icon" style="background:#6C63FF"><i class="fas fa-shield-halved" style="color:#fff;font-size:14px"></i></div>
+        <div>
+          <div class="brand-text">NetSudo</div>
+          <div class="brand-sub">CLIENT PORTAL</div>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="/client/portal" class="nav-item active"><span class="nav-icon"><i class="fas fa-grid-2"></i></span><span class="nav-text">Portal</span></a>
+        <a href="/client/tickets" class="nav-item"><span class="nav-icon"><i class="fas fa-ticket"></i></span><span class="nav-text">Tickets</span></a>
+        <a href="/client/invoices" class="nav-item"><span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span><span class="nav-text">Invoices</span></a>
+        <a href="/client/projects" class="nav-item"><span class="nav-icon"><i class="fas fa-diagram-project"></i></span><span class="nav-text">Projects</span></a>
+      </nav>
+      <div class="sidebar-footer">
+        <a href="/client/logout" class="nav-item" style="color:rgba(255,255,255,0.4)"><span class="nav-icon"><i class="fas fa-arrow-right-from-bracket"></i></span><span class="nav-text">Logout</span></a>
+      </div>
+    </aside>
+
+    <div class="main-wrapper">
+      <header id="topbar">
+        <div class="topbar-left">
+          <button class="sidebar-toggle" onclick="document.querySelector('.app-layout').classList.toggle('sidebar-open')"><i class="fas fa-bars"></i></button>
+          <span class="page-title">Dashboard</span>
+        </div>
+        <div class="topbar-right">
+          <span style="font-size:12.5px;color:var(--text-secondary)" id="userEmail"></span>
+        </div>
+      </header>
+
+      <main class="main-content">
+        <div class="welcome-banner">
+          <h2>Welcome back!</h2>
+          <p>Here's an overview of your account activity and services.</p>
+        </div>
+
+        <div class="stats-grid" id="statsGrid">
+          <div class="stat-card purple">
+            <div class="stat-icon-wrap" style="background:rgba(108,99,255,0.12)"><i class="fas fa-diagram-project" style="color:#6C63FF"></i></div>
+            <div class="stat-value" id="statProjects">—</div>
+            <div class="stat-label">Active Projects</div>
+          </div>
+          <div class="stat-card cyan">
+            <div class="stat-icon-wrap" style="background:rgba(6,182,212,0.12)"><i class="fas fa-ticket" style="color:#06b6d4"></i></div>
+            <div class="stat-value" id="statTickets">—</div>
+            <div class="stat-label">Open Tickets</div>
+          </div>
+          <div class="stat-card amber">
+            <div class="stat-icon-wrap" style="background:rgba(245,158,11,0.12)"><i class="fas fa-file-invoice-dollar" style="color:#f59e0b"></i></div>
+            <div class="stat-value" id="statInvoices">—</div>
+            <div class="stat-label">Pending Invoices</div>
+          </div>
+          <div class="stat-card green">
+            <div class="stat-icon-wrap" style="background:rgba(16,185,129,0.12)"><i class="fas fa-calendar-check" style="color:#10b981"></i></div>
+            <div class="stat-value" id="statMeeting" style="font-size:16px">—</div>
+            <div class="stat-label">Next Meeting</div>
+          </div>
+        </div>
+
+        <div class="grid-3-1">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title"><i class="fas fa-clock-rotate-left" style="margin-right:6px;color:#6C63FF"></i> Recent Activity</span>
+            </div>
+            <div class="card-body" id="activityFeed">
+              <div class="activity-feed">
+                <div class="activity-item">
+                  <div class="activity-line"><div class="activity-dot created"></div></div>
+                  <div class="activity-content">
+                    <div class="activity-text">Ticket TKT-002 opened — New user setup</div>
+                    <div class="activity-meta"><span>Mar 4, 2026</span></div>
+                  </div>
+                </div>
+                <div class="activity-item">
+                  <div class="activity-line"><div class="activity-dot stage_changed"></div></div>
+                  <div class="activity-content">
+                    <div class="activity-text">Project "Network Upgrade" progress updated to 65%</div>
+                    <div class="activity-meta"><span>Mar 3, 2026</span></div>
+                  </div>
+                </div>
+                <div class="activity-item">
+                  <div class="activity-line"><div class="activity-dot"></div></div>
+                  <div class="activity-content">
+                    <div class="activity-text">Invoice INV-001 marked as Paid — $2,500.00</div>
+                    <div class="activity-meta"><span>Mar 1, 2026</span></div>
+                  </div>
+                </div>
+                <div class="activity-item">
+                  <div class="activity-line"><div class="activity-dot note"></div></div>
+                  <div class="activity-content">
+                    <div class="activity-text">Ticket TKT-001 updated — VPN issue in progress</div>
+                    <div class="activity-meta"><span>Mar 1, 2026</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="card">
+              <div class="card-header">
+                <span class="card-title"><i class="fas fa-bolt" style="margin-right:6px;color:#6C63FF"></i> Quick Actions</span>
+              </div>
+              <div class="card-body">
+                <div class="quick-actions">
+                  <a href="/client/tickets" class="quick-action"><i class="fas fa-plus"></i> Open New Ticket</a>
+                  <a href="/client/invoices" class="quick-action"><i class="fas fa-eye"></i> View Invoices</a>
+                  <a href="/client/projects" class="quick-action"><i class="fas fa-chart-line"></i> Check Project Status</a>
+                  <a href="mailto:support@netsudo.com" class="quick-action"><i class="fas fa-envelope"></i> Contact Support</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    (async () => {
+      try {
+        const r = await fetch('/api/client/stats');
+        if (!r.ok) throw new Error();
+        const d = await r.json();
+        document.getElementById('statProjects').textContent = d.activeProjects;
+        document.getElementById('statTickets').textContent = d.openTickets;
+        document.getElementById('statInvoices').textContent = d.pendingInvoices;
+        document.getElementById('statMeeting').textContent = d.nextMeeting;
+      } catch (e) { console.error('Failed to load stats', e); }
+    })();
+  </script>
+</body>
+</html>

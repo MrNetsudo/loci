@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoices — Client Portal — NetSudo</title>
+  <link rel="stylesheet" href="/admin/css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    :root { --accent: #6C63FF; --accent-hover: #5a52e0; }
+    .nav-item.active { background: #6C63FF; }
+    .badge-paid    { background: rgba(16,185,129,0.12); color: #10b981; }
+    .badge-unpaid  { background: rgba(245,158,11,0.12); color: #f59e0b; }
+    .badge-overdue { background: rgba(239,68,68,0.12); color: #ef4444; }
+    .summary-bar {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .summary-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      box-shadow: var(--shadow);
+    }
+    .summary-item .label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); margin-bottom: 6px; }
+    .summary-item .value { font-size: 24px; font-weight: 800; color: var(--text-primary); }
+    .summary-item .value.green { color: #10b981; }
+    .summary-item .value.amber { color: #f59e0b; }
+    .summary-item .value.red   { color: #ef4444; }
+    .btn-download {
+      background: transparent; border: 1px solid var(--border);
+      color: var(--text-secondary); padding: 4px 10px;
+      border-radius: var(--radius-sm); font-size: 12px;
+      cursor: pointer; transition: all var(--transition);
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .btn-download:hover { border-color: #6C63FF; color: #6C63FF; }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <div class="sidebar-overlay" onclick="document.querySelector('.app-layout').classList.remove('sidebar-open')"></div>
+    <aside id="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-icon" style="background:#6C63FF"><i class="fas fa-shield-halved" style="color:#fff;font-size:14px"></i></div>
+        <div>
+          <div class="brand-text">NetSudo</div>
+          <div class="brand-sub">CLIENT PORTAL</div>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="/client/portal" class="nav-item"><span class="nav-icon"><i class="fas fa-grid-2"></i></span><span class="nav-text">Portal</span></a>
+        <a href="/client/tickets" class="nav-item"><span class="nav-icon"><i class="fas fa-ticket"></i></span><span class="nav-text">Tickets</span></a>
+        <a href="/client/invoices" class="nav-item active"><span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span><span class="nav-text">Invoices</span></a>
+        <a href="/client/projects" class="nav-item"><span class="nav-icon"><i class="fas fa-diagram-project"></i></span><span class="nav-text">Projects</span></a>
+      </nav>
+      <div class="sidebar-footer">
+        <a href="/client/logout" class="nav-item" style="color:rgba(255,255,255,0.4)"><span class="nav-icon"><i class="fas fa-arrow-right-from-bracket"></i></span><span class="nav-text">Logout</span></a>
+      </div>
+    </aside>
+
+    <div class="main-wrapper">
+      <header id="topbar">
+        <div class="topbar-left">
+          <button class="sidebar-toggle" onclick="document.querySelector('.app-layout').classList.toggle('sidebar-open')"><i class="fas fa-bars"></i></button>
+          <span class="page-title">Invoices</span>
+        </div>
+        <div class="topbar-right"></div>
+      </header>
+
+      <main class="main-content">
+        <div class="summary-bar" id="summaryBar">
+          <div class="summary-item">
+            <div class="label">Total Paid</div>
+            <div class="value green" id="sumPaid">$0</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">Unpaid / Pending</div>
+            <div class="value amber" id="sumUnpaid">$0</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">Overdue</div>
+            <div class="value red" id="sumOverdue">$0</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title"><i class="fas fa-file-invoice-dollar" style="margin-right:6px;color:#6C63FF"></i> Invoice History</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Invoice #</th>
+                  <th>Date</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="invoiceBody">
+                <tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">Loading invoices...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    function statusBadge(s) {
+      const cls = s === 'Paid' ? 'badge-paid' : s === 'Overdue' ? 'badge-overdue' : 'badge-unpaid';
+      return `<span class="badge ${cls}"><i class="fas fa-${s==='Paid'?'check-circle':s==='Overdue'?'exclamation-triangle':'clock'}" style="margin-right:4px;font-size:10px"></i>${s}</span>`;
+    }
+    function fmtMoney(n) { return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function fmtDate(d) { return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+
+    (async () => {
+      try {
+        const r = await fetch('/api/client/invoices');
+        const d = await r.json();
+        const inv = d.invoices;
+        let paid = 0, unpaid = 0, overdue = 0;
+        inv.forEach(i => {
+          if (i.status === 'Paid') paid += i.amount;
+          else if (i.status === 'Overdue') overdue += i.amount;
+          else unpaid += i.amount;
+        });
+        document.getElementById('sumPaid').textContent = fmtMoney(paid);
+        document.getElementById('sumUnpaid').textContent = fmtMoney(unpaid);
+        document.getElementById('sumOverdue').textContent = fmtMoney(overdue);
+
+        const tb = document.getElementById('invoiceBody');
+        if (!inv.length) {
+          tb.innerHTML = '<tr><td colspan="5" class="empty-state" style="padding:32px"><div class="empty-icon"><i class="fas fa-file-invoice"></i></div><div class="empty-text">No invoices</div></td></tr>';
+          return;
+        }
+        tb.innerHTML = inv.map(i => `
+          <tr>
+            <td class="td-mono">${i.id}</td>
+            <td class="td-muted">${fmtDate(i.date)}</td>
+            <td style="font-weight:600">${fmtMoney(i.amount)}</td>
+            <td>${statusBadge(i.status)}</td>
+            <td><button class="btn-download" onclick="alert('Download coming soon for ${i.id}')"><i class="fas fa-download"></i> PDF</button></td>
+          </tr>
+        `).join('');
+      } catch (e) {
+        document.getElementById('invoiceBody').innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--accent-red)">Failed to load invoices</td></tr>';
+      }
+    })();
+  </script>
+</body>
+</html>
