@@ -67,9 +67,9 @@ function getCategoryConfig(cat?: string) {
 }
 
 function formatDistance(meters: number): string {
-  if (meters < 100) return `${Math.round(meters)}m`;
-  if (meters < 1000) return `${Math.round(meters / 10) * 10}m`;
-  return `${(meters / 1000).toFixed(1)}km`;
+  const miles = meters / 1609.344;
+  if (miles < 0.1) return `${Math.round(meters * 3.281)}ft`;
+  return `${miles.toFixed(1)}mi`;
 }
 
 // ── Home Screen ──────────────────────────────────────────
