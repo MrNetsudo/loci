@@ -89,7 +89,7 @@ class VenueService {
       .lte('latitude', lat + latDelta)
       .gte('longitude', lng - lngDelta)
       .lte('longitude', lng + lngDelta)
-      .limit(30);
+      .limit(50);
 
     if (!data?.length) return [];
 

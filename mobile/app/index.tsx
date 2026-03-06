@@ -190,7 +190,7 @@ export default function HomeScreen() {
   const loadNearbyVenues = async () => {
     if (!location.latitude || !location.longitude) return;
     try {
-      const res = await api.venues.nearby(location.latitude, location.longitude, 1000);
+      const res = await api.venues.nearby(location.latitude, location.longitude, 2000);
       const v = res.venues as VenueWithDistance[];
       setVenues(v);
       const live = v.filter((x) => ['active', 'warming'].includes(x.room_status || '')).length;
