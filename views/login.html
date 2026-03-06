@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — NetSudo Admin</title>
+  <link rel="stylesheet" href="/admin/css/style.css">
+  <style>
+    body { background: var(--bg); }
+    .login-card { animation: fadeUp 0.3s ease; }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+    .form-control { background: var(--bg) !important; }
+  </style>
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-logo">
+        <div class="login-logo-icon">⚙</div>
+        <div class="login-title">NetSudo Admin</div>
+        <div class="login-sub">Sign in to your workspace</div>
+      </div>
+
+      <div id="error-banner" style="display:none" class="error-banner">
+        ⚠ Invalid username or password
+      </div>
+
+      <form method="POST" action="/admin/login" id="login-form">
+        <div class="form-group">
+          <label class="form-label" for="username">Username</label>
+          <input class="form-control" type="text" id="username" name="username"
+                 placeholder="Enter username" required autofocus autocomplete="username">
+        </div>
+        <div class="form-group" style="margin-bottom:22px">
+          <label class="form-label" for="password">Password</label>
+          <input class="form-control" type="password" id="password" name="password"
+                 placeholder="Enter password" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px" id="submit-btn">
+          Sign In →
+        </button>
+      </form>
+
+      <div class="login-footer">NetSudo Operations Panel v2.0</div>
+    </div>
+  </div>
+
+  <script>
+    // Theme from localStorage
+    const t = localStorage.getItem('ns-theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', t);
+
+    // Check error param
+    if (new URLSearchParams(location.search).get('error')) {
+      document.getElementById('error-banner').style.display = 'block';
+    }
+
+    // Loading state on submit
+    document.getElementById('login-form').addEventListener('submit', () => {
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true; btn.textContent = 'Signing in…';
+    });
+  </script>
+</body>
+</html>

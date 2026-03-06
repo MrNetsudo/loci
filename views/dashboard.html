@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — NetSudo Admin</title>
+  <link rel="stylesheet" href="/admin/css/style.css">
+</head>
+<body>
+<div class="app-layout" id="app-layout">
+  <div class="sidebar-overlay"></div>
+  <aside id="sidebar"></aside>
+  <div class="main-wrapper">
+    <header id="topbar"></header>
+    <main class="main-content">
+
+      <!-- ── Stat Cards ── -->
+      <div class="stats-grid">
+        <div class="stat-card" style="--stat-color:#3b82f6">
+          <div class="stat-icon-wrap" style="--stat-bg:rgba(59,130,246,0.12)">👥</div>
+          <div class="stat-value"><span id="stat-total"><span class="skeleton" style="width:60px;height:32px;display:inline-block"></span></span></div>
+          <div class="stat-label">Total Contacts</div>
+          <div class="stat-change">All time</div>
+        </div>
+        <div class="stat-card" style="--stat-color:#06b6d4">
+          <div class="stat-icon-wrap" style="--stat-bg:rgba(6,182,212,0.12)">📅</div>
+          <div class="stat-value"><span id="stat-week"><span class="skeleton" style="width:40px;height:32px;display:inline-block"></span></span></div>
+          <div class="stat-label">New This Week</div>
+          <div class="stat-change">Last 7 days</div>
+        </div>
+        <div class="stat-card" style="--stat-color:#f59e0b">
+          <div class="stat-icon-wrap" style="--stat-bg:rgba(245,158,11,0.12)">📈</div>
+          <div class="stat-value"><span id="stat-month"><span class="skeleton" style="width:40px;height:32px;display:inline-block"></span></span></div>
+          <div class="stat-label">New This Month</div>
+          <div class="stat-change">Last 30 days</div>
+        </div>
+        <div class="stat-card" style="--stat-color:#10b981">
+          <div class="stat-icon-wrap" style="--stat-bg:rgba(16,185,129,0.12)">🏆</div>
+          <div class="stat-value"><span id="stat-won"><span class="skeleton" style="width:40px;height:32px;display:inline-block"></span></span></div>
+          <div class="stat-label">Closed Won</div>
+          <div class="stat-change">All time</div>
+        </div>
+      </div>
+
+      <!-- ── Middle Row ── -->
+      <div class="grid-3-1 mb-24">
+        <!-- Activity Feed -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Recent Activity</span>
+            <a href="/admin/contacts" class="btn btn-ghost btn-sm">View all →</a>
+          </div>
+          <div class="card-body" style="padding:12px 16px">
+            <div id="activity-feed">
+              <div class="activity-item"><div class="activity-line"><div class="activity-dot"></div></div><div class="activity-content"><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text short"></div></div></div>
+              <div class="activity-item"><div class="activity-line"><div class="activity-dot"></div></div><div class="activity-content"><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text short"></div></div></div>
+              <div class="activity-item"><div class="activity-line"><div class="activity-dot"></div></div><div class="activity-content"><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text short"></div></div></div>
+              <div class="activity-item"><div class="activity-line"><div class="activity-dot"></div></div><div class="activity-content"><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text short"></div></div></div>
+              <div class="activity-item"><div class="activity-line"><div class="activity-dot"></div></div><div class="activity-content"><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text short"></div></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pipeline Summary -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Pipeline</span>
+            <a href="/admin/pipeline" class="btn btn-ghost btn-sm">Board →</a>
+          </div>
+          <div class="card-body">
+            <div id="pipeline-summary" class="pipeline-bars">
+              <div class="pipeline-row"><div class="skeleton skeleton-text" style="height:8px;flex:1"></div></div>
+              <div class="pipeline-row"><div class="skeleton skeleton-text" style="height:8px;flex:1"></div></div>
+              <div class="pipeline-row"><div class="skeleton skeleton-text" style="height:8px;flex:1"></div></div>
+              <div class="pipeline-row"><div class="skeleton skeleton-text" style="height:8px;flex:1"></div></div>
+              <div class="pipeline-row"><div class="skeleton skeleton-text" style="height:8px;flex:1"></div></div>
+              <div class="pipeline-row"><div class="skeleton skeleton-text" style="height:8px;flex:1"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Recent Contacts ── -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Recent Contacts</span>
+          <a href="/admin/contacts" class="btn btn-ghost btn-sm">All contacts →</a>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Contact</th>
+                <th>Company</th>
+                <th>Stage</th>
+                <th>Tag</th>
+                <th>Added</th>
+              </tr>
+            </thead>
+            <tbody id="recent-tbody">
+              <tr><td colspan="5"><div class="skeleton skeleton-row"></div></td></tr>
+              <tr><td colspan="5"><div class="skeleton skeleton-row"></div></td></tr>
+              <tr><td colspan="5"><div class="skeleton skeleton-row"></div></td></tr>
+              <tr><td colspan="5"><div class="skeleton skeleton-row"></div></td></tr>
+              <tr><td colspan="5"><div class="skeleton skeleton-row"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+<div id="toast-container"></div>
+<script src="/admin/js/app.js"></script>
+<script src="/admin/js/dashboard.js"></script>
+</body>
+</html>

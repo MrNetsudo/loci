@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head><title>Two-Factor Auth — NetSudo</title>
+<style>
+  body { background: #0a0a0a; color: #fff; font-family: Inter, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+  .card { background: #111; border: 1px solid #1e1e2e; border-radius: 20px; padding: 48px; width: 100%; max-width: 400px; text-align: center; }
+  h2 { margin-bottom: 8px; }
+  p { color: #888; margin-bottom: 24px; }
+  input { width: 100%; padding: 14px; background: #0a0a0a; border: 1px solid #2a2a3a; border-radius: 12px; color: #fff; font-size: 24px; text-align: center; letter-spacing: 8px; box-sizing: border-box; margin-bottom: 16px; }
+  button { width: 100%; padding: 14px; background: linear-gradient(135deg,#6C63FF,#8b5cf6); color: #fff; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; }
+  .error { color: #f87171; margin-top: 12px; }
+  .back { margin-top: 16px; display: block; color: #555; font-size: 14px; text-decoration: none; }
+  .back:hover { color: #888; }
+</style></head>
+<body>
+<div class="card">
+  <div style="font-size:2.5rem;margin-bottom:16px;">🔐</div>
+  <h2>Two-Factor Auth</h2>
+  <p>Enter the 6-digit code from your authenticator app.</p>
+  <form method="POST" action="/admin/2fa">
+    <input type="text" name="token" maxlength="6" pattern="[0-9]{6}" autocomplete="one-time-code" autofocus placeholder="000000" inputmode="numeric">
+    <button type="submit">Verify →</button>
+  </form>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('error') === '1') {
+      const err = document.createElement('div');
+      err.className = 'error';
+      err.textContent = 'Invalid code. Please try again.';
+      document.querySelector('.card').appendChild(err);
+    } else if (params.get('error') === '2fa_exceeded') {
+      const err = document.createElement('div');
+      err.className = 'error';
+      err.textContent = 'Too many failed attempts. Please log in again.';
+      document.querySelector('.card').appendChild(err);
+    }
+  </script>
+  <a href="/admin/login" class="back">← Back to login</a>
+</div>
+</body></html>

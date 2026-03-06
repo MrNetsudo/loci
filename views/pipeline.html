@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pipeline — NetSudo Admin</title>
+  <link rel="stylesheet" href="/admin/css/style.css">
+</head>
+<body>
+<div class="app-layout" id="app-layout">
+  <div class="sidebar-overlay"></div>
+  <aside id="sidebar"></aside>
+  <div class="main-wrapper">
+    <header id="topbar"></header>
+    <main class="main-content">
+
+      <div class="page-header">
+        <div>
+          <div class="page-heading">Pipeline</div>
+          <div class="page-sub">Drag cards between stages to update</div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-secondary" onclick="loadPipeline()">↻ Refresh</button>
+          <a href="/admin/contacts" class="btn btn-primary">+ Add Contact</a>
+        </div>
+      </div>
+
+      <div class="kanban-wrap" id="kanban-board">
+        <!-- Built dynamically by pipeline.js -->
+        <div style="color:var(--text-muted);font-size:13px;padding:20px">Loading pipeline…</div>
+      </div>
+
+    </main>
+  </div>
+</div>
+<div id="toast-container"></div>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script src="/admin/js/app.js"></script>
+<script src="/admin/js/pipeline.js"></script>
+</body>
+</html>

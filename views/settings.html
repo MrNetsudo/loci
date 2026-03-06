@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings — NetSudo Admin</title>
+  <link rel="stylesheet" href="/admin/css/style.css">
+</head>
+<body>
+<div class="app-layout" id="app-layout">
+  <div class="sidebar-overlay"></div>
+  <aside id="sidebar"></aside>
+  <div class="main-wrapper">
+    <header id="topbar"></header>
+    <main class="main-content">
+
+      <div class="page-header">
+        <div>
+          <div class="page-heading">Settings</div>
+          <div class="page-sub">Account & preferences</div>
+        </div>
+      </div>
+
+      <div style="max-width:600px">
+
+        <!-- Appearance -->
+        <div class="card mb-24">
+          <div class="card-header"><span class="card-title">Appearance</span></div>
+          <div class="card-body">
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label">Theme</label>
+              <div style="display:flex;gap:10px;margin-top:8px">
+                <button class="btn btn-secondary" id="theme-dark-btn" onclick="setTheme('dark')" style="flex:1;justify-content:center">
+                  🌙 Dark Mode
+                </button>
+                <button class="btn btn-secondary" id="theme-light-btn" onclick="setTheme('light')" style="flex:1;justify-content:center">
+                  ☀️ Light Mode
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Change Password -->
+        <div class="card mb-24">
+          <div class="card-header"><span class="card-title">Change Password</span></div>
+          <div class="card-body">
+            <form id="pw-form">
+              <div class="form-group">
+                <label class="form-label">Current Password</label>
+                <input class="form-control" type="password" id="cur-pw" placeholder="Current password" required autocomplete="current-password">
+              </div>
+              <div class="form-group">
+                <label class="form-label">New Password</label>
+                <input class="form-control" type="password" id="new-pw" placeholder="New password (min 8 chars)" required minlength="8" autocomplete="new-password">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Confirm New Password</label>
+                <input class="form-control" type="password" id="conf-pw" placeholder="Confirm new password" required autocomplete="new-password">
+              </div>
+              <button type="submit" class="btn btn-primary" id="pw-btn">Update Password</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- System Info -->
+        <div class="card">
+          <div class="card-header"><span class="card-title">System Info</span></div>
+          <div class="card-body">
+            <div class="info-field" style="padding:8px 0;border-bottom:1px solid var(--border)">
+              <div class="info-label">Platform</div>
+              <div class="info-value">NetSudo Admin Panel v2.0</div>
+            </div>
+            <div class="info-field" style="padding:8px 0;border-bottom:1px solid var(--border)">
+              <div class="info-label">Domain</div>
+              <div class="info-value">netsudo.com</div>
+            </div>
+            <div class="info-field" style="padding:8px 0;border-bottom:1px solid var(--border)">
+              <div class="info-label">Logged in as</div>
+              <div class="info-value" id="logged-as">…</div>
+            </div>
+            <div class="info-field" style="padding:8px 0">
+              <div class="info-label">Notifications</div>
+              <div class="info-value">Telegram — enabled</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </main>
+  </div>
+</div>
+<div id="toast-container"></div>
+<script src="/admin/js/app.js"></script>
+<script>
+function setTheme(t) {
+  ThemeManager.apply(t);
+  updateThemeBtns();
+}
+function updateThemeBtns() {
+  const cur = ThemeManager.get();
+  document.getElementById('theme-dark-btn').className  = `btn ${cur==='dark'?'btn-primary':'btn-secondary'}`;
+  document.getElementById('theme-light-btn').className = `btn ${cur==='light'?'btn-primary':'btn-secondary'}`;
+  document.querySelectorAll('.theme-btn-wrap').forEach(el => el.style.flex = '1;justify-content:center');
+}
+
+document.getElementById('pw-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const cur  = document.getElementById('cur-pw').value;
+  const nw   = document.getElementById('new-pw').value;
+  const conf = document.getElementById('conf-pw').value;
+  if (nw !== conf) return Toast.error('New passwords do not match');
+  const btn = document.getElementById('pw-btn');
+  btn.disabled = true; btn.textContent = 'Updating…';
+  try {
+    await API.post('/admin/api/settings/password', { currentPassword: cur, newPassword: nw });
+    Toast.success('Password updated successfully');
+    e.target.reset();
+  } catch (err) {
+    Toast.error(err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Update Password';
+  }
+});
+
+initLayout({ page: 'settings', title: 'Settings' }).then((user) => {
+  document.getElementById('logged-as').textContent = `${user.username} (${user.role})`;
+  updateThemeBtns();
+});
+</script>
+</body>
+</html>

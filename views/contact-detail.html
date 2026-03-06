@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact — NetSudo Admin</title>
+  <link rel="stylesheet" href="/admin/css/style.css">
+  <style>
+    .info-field { padding: 9px 0; border-bottom: 1px solid var(--border); }
+    .info-field:last-child { border-bottom: none; }
+    .info-label { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 3px; }
+    .info-value { font-size: 13.5px; color: var(--text-primary); }
+    .info-value.empty { color: var(--text-muted); font-style: italic; }
+    .editing .view-mode { display: none !important; }
+    .editing .edit-mode { display: block !important; }
+    .view-mode { display: block; }
+    .edit-mode { display: none; }
+    .tag-picker { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .tag-opt {
+      padding: 4px 12px; border-radius: 100px; font-size: 12px; cursor: pointer;
+      border: 1px solid var(--border); color: var(--text-secondary);
+      transition: all 0.15s ease;
+    }
+    .tag-opt.selected { border-color: transparent; color: #fff; }
+    .stage-select-wrap { margin-top: 6px; }
+  </style>
+</head>
+<body>
+<div class="app-layout" id="app-layout">
+  <div class="sidebar-overlay"></div>
+  <aside id="sidebar"></aside>
+  <div class="main-wrapper">
+    <header id="topbar"></header>
+    <main class="main-content">
+
+      <div class="page-header">
+        <div style="display:flex;align-items:center;gap:12px">
+          <a href="/admin/contacts" class="btn btn-ghost btn-sm" style="padding:6px 8px">← Back</a>
+          <div>
+            <div class="page-heading" id="contact-title">Loading…</div>
+            <div class="page-sub" id="contact-sub"></div>
+          </div>
+        </div>
+        <div id="action-btns" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      </div>
+
+      <div class="contact-detail-grid" id="detail-grid">
+        <!-- Loading skeleton -->
+        <div>
+          <div class="skeleton skeleton-card mb-24"></div>
+          <div class="skeleton skeleton-card"></div>
+        </div>
+        <div>
+          <div class="skeleton skeleton-card" style="height:200px"></div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+<div id="toast-container"></div>
+<script src="/admin/js/app.js"></script>
+<script>
+const contactId = window.location.pathname.split('/').pop();
+let contact = null;
+let isEditing = false;
+
+async function loadContact() {
+  try {
+    contact = await API.get(`/admin/api/contacts/${contactId}`);
+    renderDetail();
+  } catch (e) {
+    Toast.error('Failed to load contact: ' + e.message);
+    document.getElementById('contact-title').textContent = 'Error loading contact';
+  }
+}
+
+function renderDetail() {
+  const c = contact;
+  document.title = `${c.name || c.email} — NetSudo Admin`;
+  document.getElementById('contact-title').textContent = c.name || c.email;
+  document.getElementById('contact-sub').textContent   = c.company || c.email;
+
+  // Action buttons
+  document.getElementById('action-btns').innerHTML = `
+    <button class="btn btn-secondary" onclick="toggleEdit()" id="edit-btn">✏ Edit</button>
+    <button class="btn btn-danger" onclick="deleteContact()">Delete</button>`;
+
+  const stageOpts = ['New','Contacted','In Conversation','Proposal Sent','Closed Won','Closed Lost']
+    .map(s => `<option value="${s}" ${c.stage===s?'selected':''}>${s}</option>`).join('');
+  const tagOpts = ['lead','prospect','client','cold','partner']
+    .map(t => `<option value="${t}" ${c.tag===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('');
+
+  document.getElementById('detail-grid').innerHTML = `
+    <!-- Left panel -->
+    <div>
+      <!-- Hero + Edit form -->
+      <div class="card mb-24" id="info-card">
+        <div class="card-header">
+          <span class="card-title">Contact Info</span>
+          <div id="edit-actions" style="display:none;gap:8px">
+            <button class="btn btn-secondary btn-sm" onclick="cancelEdit()">Cancel</button>
+            <button class="btn btn-primary btn-sm" onclick="saveContact()">Save Changes</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="contact-hero">
+            <div class="contact-avatar-lg" id="hero-initials">${initials(c.name)}</div>
+            <div>
+              <div class="contact-hero-name view-mode" id="disp-name">${escHtml(c.name||'Unnamed')}</div>
+              <input class="form-control edit-mode" id="inp-name" value="${escHtml(c.name||'')}" placeholder="Full Name" style="font-size:16px;font-weight:700">
+              <div class="contact-hero-email view-mode" id="disp-email">${escHtml(c.email)}</div>
+              <input class="form-control edit-mode" id="inp-email" value="${escHtml(c.email)}" placeholder="Email" style="margin-top:4px">
+            </div>
+          </div>
+
+          <div style="margin-top:16px">
+            <div class="info-field">
+              <div class="info-label">Company</div>
+              <div class="info-value view-mode ${!c.company?'empty':''}" id="disp-company">${c.company||'Not set'}</div>
+              <input class="form-control edit-mode" id="inp-company" value="${escHtml(c.company||'')}" placeholder="Company name">
+            </div>
+            <div class="info-field">
+              <div class="info-label">Phone</div>
+              <div class="info-value view-mode ${!c.phone?'empty':''}" id="disp-phone">${c.phone||'Not set'}</div>
+              <input class="form-control edit-mode" id="inp-phone" value="${escHtml(c.phone||'')}" placeholder="Phone number">
+            </div>
+            <div class="info-field">
+              <div class="info-label">Source</div>
+              <div class="info-value">${escHtml(c.source||'manual')}</div>
+            </div>
+            <div class="info-field">
+              <div class="info-label">Added</div>
+              <div class="info-value">${fmtDateTime(c.created_at)}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stage & Tag -->
+      <div class="card mb-24">
+        <div class="card-header"><span class="card-title">Classification</span></div>
+        <div class="card-body">
+          <div class="form-group">
+            <div class="form-label">Pipeline Stage</div>
+            <div class="view-mode">${stageBadge(c.stage||'New')}</div>
+            <select class="form-control edit-mode" id="inp-stage">${stageOpts}</select>
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <div class="form-label">Tag</div>
+            <div class="view-mode">${tagBadge(c.tag)}</div>
+            <select class="form-control edit-mode" id="inp-tag">${tagOpts}</select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">Notes</span></div>
+        <div class="card-body">
+          <div class="view-mode ${!c.notes?'empty':''}" id="disp-notes" style="font-size:13.5px;line-height:1.6;color:${c.notes?'var(--text-primary)':'var(--text-muted)'};font-style:${c.notes?'normal':'italic'}">${c.notes||'No notes yet'}</div>
+          <textarea class="form-control edit-mode" id="inp-notes" rows="4" placeholder="Add notes…">${escHtml(c.notes||'')}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right panel: Activity -->
+    <div>
+      <div class="card mb-24">
+        <div class="card-header"><span class="card-title">Activity Timeline</span></div>
+        <div class="card-body" style="padding:12px 16px">
+          <div id="activity-list" class="activity-feed">
+            ${renderActivityItems(c.activity || [])}
+          </div>
+        </div>
+      </div>
+
+      <!-- Add Note -->
+      <div class="card mb-24">
+        <div class="card-header"><span class="card-title">Add Note</span></div>
+        <div class="card-body">
+          <textarea class="form-control" id="note-input" rows="3" placeholder="Write a note…"></textarea>
+          <button class="btn btn-primary" style="margin-top:10px" onclick="addNote()">Add Note</button>
+        </div>
+      </div>
+
+      <!-- Email Stub -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">Send Email</span></div>
+        <div class="card-body">
+          <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">
+            Log an outreach action — full email integration coming soon.
+          </div>
+          <div class="form-group">
+            <label class="form-label">Subject</label>
+            <input class="form-control" id="email-subject" placeholder="Re: Partnership opportunity…">
+          </div>
+          <button class="btn btn-secondary" style="width:100%;justify-content:center" onclick="logEmail()">📨 Log Email Action</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderActivityItems(items) {
+  if (!items.length) return `<div class="empty-state" style="padding:24px 0"><div class="empty-icon">📋</div><div class="empty-text">No activity yet</div></div>`;
+  return items.map(a => `
+    <div class="activity-item">
+      <div class="activity-line">
+        <div class="activity-dot ${escHtml(a.action)}"></div>
+      </div>
+      <div class="activity-content">
+        <div class="activity-text">
+          <b>${escHtml(a.admin_user||'system')}</b> ${actionLabel(a.action)}
+          ${(a.action==='note'||a.action==='stage_changed') ? `<br><span style="color:var(--text-secondary);font-size:12.5px">${escHtml(a.detail||'')}</span>` : ''}
+        </div>
+        <div class="activity-meta">${timeAgo(a.created_at)}</div>
+      </div>
+    </div>`).join('');
+}
+
+function toggleEdit() {
+  isEditing = !isEditing;
+  const card = document.getElementById('info-card');
+  const editActions = document.getElementById('edit-actions');
+  const editBtn = document.getElementById('edit-btn');
+
+  document.querySelectorAll('.view-mode').forEach(el => el.style.display = isEditing ? 'none' : '');
+  document.querySelectorAll('.edit-mode').forEach(el => el.style.display = isEditing ? 'block' : 'none');
+  editActions.style.display = isEditing ? 'flex' : 'none';
+  editBtn.textContent = isEditing ? '✕ Cancel Edit' : '✏ Edit';
+  if (isEditing) editBtn.onclick = cancelEdit;
+  else editBtn.onclick = toggleEdit;
+}
+
+function cancelEdit() {
+  isEditing = false;
+  document.querySelectorAll('.view-mode').forEach(el => el.style.display = '');
+  document.querySelectorAll('.edit-mode').forEach(el => el.style.display = 'none');
+  document.getElementById('edit-actions').style.display = 'none';
+  const editBtn = document.getElementById('edit-btn');
+  editBtn.textContent = '✏ Edit';
+  editBtn.onclick = toggleEdit;
+}
+
+async function saveContact() {
+  const data = {
+    name:    document.getElementById('inp-name')?.value,
+    email:   document.getElementById('inp-email')?.value,
+    company: document.getElementById('inp-company')?.value,
+    phone:   document.getElementById('inp-phone')?.value,
+    stage:   document.getElementById('inp-stage')?.value,
+    tag:     document.getElementById('inp-tag')?.value,
+    notes:   document.getElementById('inp-notes')?.value,
+  };
+  try {
+    contact = await API.put(`/admin/api/contacts/${contactId}`, data);
+    renderDetail();
+    Toast.success('Contact saved');
+    isEditing = false;
+  } catch (e) {
+    Toast.error(e.message);
+  }
+}
+
+async function addNote() {
+  const note = document.getElementById('note-input')?.value?.trim();
+  if (!note) return Toast.warn('Note cannot be empty');
+  try {
+    const r = await API.post(`/admin/api/contacts/${contactId}/note`, { note });
+    contact.activity = r.activity;
+    document.getElementById('activity-list').innerHTML = renderActivityItems(r.activity);
+    document.getElementById('note-input').value = '';
+    Toast.success('Note added');
+  } catch (e) {
+    Toast.error(e.message);
+  }
+}
+
+async function logEmail() {
+  const subject = document.getElementById('email-subject')?.value?.trim() || '(no subject)';
+  try {
+    await API.post(`/admin/api/contacts/${contactId}/email`, { subject });
+    Toast.info('Email action logged — full feature coming soon');
+    document.getElementById('email-subject').value = '';
+    // refresh activity
+    contact = await API.get(`/admin/api/contacts/${contactId}`);
+    document.getElementById('activity-list').innerHTML = renderActivityItems(contact.activity || []);
+  } catch (e) {
+    Toast.error(e.message);
+  }
+}
+
+function deleteContact() {
+  showConfirm({
+    title: 'Delete Contact',
+    text: `Remove "${contact?.name || contact?.email}" permanently? All activity will also be deleted.`,
+    confirmText: 'Delete Forever',
+    danger: true,
+    onConfirm: async () => {
+      try {
+        await API.del(`/admin/api/contacts/${contactId}`);
+        Toast.success('Contact deleted');
+        setTimeout(() => { window.location = '/admin/contacts'; }, 800);
+      } catch (e) {
+        Toast.error(e.message);
+      }
+    }
+  });
+}
+
+initLayout({ page: 'contacts', title: 'Contact' }).then(() => {
+  loadContact();
+});
+</script>
+</body>
+</html>

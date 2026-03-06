@@ -1,0 +1,20 @@
+{
+  "name": "netsudo-admin",
+  "version": "2.0.0",
+  "description": "NetSudo Admin CRM Dashboard",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.0",
+    "cookie-parser": "^1.4.6",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.4.0",
+    "express-session": "^1.17.3",
+    "helmet": "^8.0.0",
+    "pg": "^8.11.0",
+    "qrcode": "^1.5.4",
+    "speakeasy": "^2.0.0"
+  }
+}
