@@ -64,7 +64,7 @@ export default function AuthScreen() {
   // Resend countdown timer
   useEffect(() => {
     if (step !== 'otp') return;
-    setResendCountdown(30);
+    setResendCountdown(120);
     setCanResend(false);
     const interval = setInterval(() => {
       setResendCountdown((c) => {
@@ -114,7 +114,7 @@ export default function AuthScreen() {
     try {
       await api.auth.emailSignup(name.trim(), email.trim().toLowerCase());
       setDigits(['', '', '', '', '', '']);
-      setResendCountdown(30);
+      setResendCountdown(120);
       setCanResend(false);
       // Restart timer
       const interval = setInterval(() => {
