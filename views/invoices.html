@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoices — NetSudo Admin</title>
+  <link rel="stylesheet" href="/admin/css/style.css">
+</head>
+<body>
+<div class="app-layout" id="app-layout">
+  <div class="sidebar-overlay"></div>
+  <aside id="sidebar"></aside>
+  <div class="main-wrapper">
+    <header id="topbar"></header>
+    <main class="main-content">
+
+      <!-- ── Stats Bar ── -->
+      <div class="stats-grid">
+        <div class="stat-card" style="--stat-color:#3b82f6">
+          <div class="stat-icon-wrap" style="--stat-bg:rgba(59,130,246,0.12)">💰</div>
+          <div class="stat-value"><span id="stat-revenue"><span class="skeleton" style="width:80px;height:32px;display:inline-block"></span></span></div>
+          <div class="stat-label">Total Revenue</div>
+        </div>
+        <div class="stat-card" style="--stat-color:#f59e0b">
+          <div class="stat-icon-wrap" style="--stat-bg:rgba(245,158,11,0.12)">📋</div>
+          <div class="stat-value"><span id="stat-outstanding"><span class="skeleton" style="width:60px;height:32px;display:inline-block"></span></span></div>
+          <div class="stat-label">Outstanding</div>
+        </div>
+        <div class="stat-card" style="--stat-color:#ef4444">
+          <div class="stat-icon-wrap" style="--stat-bg:rgba(239,68,68,0.12)">⚠️</div>
+          <div class="stat-value"><span id="stat-overdue"><span class="skeleton" style="width:60px;height:32px;display:inline-block"></span></span></div>
+          <div class="stat-label">Overdue</div>
+        </div>
+        <div class="stat-card" style="--stat-color:#10b981">
+          <div class="stat-icon-wrap" style="--stat-bg:rgba(16,185,129,0.12)">✅</div>
+          <div class="stat-value"><span id="stat-paid-month"><span class="skeleton" style="width:60px;height:32px;display:inline-block"></span></span></div>
+          <div class="stat-label">Paid This Month</div>
+        </div>
+      </div>
+
+      <!-- ── Invoices Table ── -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Invoices</span>
+          <button class="btn btn-primary btn-sm" onclick="openModal('invoice-modal')">+ New Invoice</button>
+        </div>
+        <div class="filter-bar" style="padding:12px 20px 0">
+          <div class="search-wrap">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input class="search-input" id="inv-search" placeholder="Search invoices..." oninput="filterInvoices()">
+          </div>
+          <select class="filter-select" id="inv-status-filter" onchange="filterInvoices()">
+            <option value="">All Status</option>
+            <option value="Paid">Paid</option>
+            <option value="Unpaid">Unpaid</option>
+            <option value="Overdue">Overdue</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Invoice #</th>
+                <th>Client</th>
+                <th>Amount</th>
+                <th>Date</th>
+                <th>Due Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="invoices-tbody">
+              <tr><td colspan="7"><div class="skeleton skeleton-row"></div></td></tr>
+              <tr><td colspan="7"><div class="skeleton skeleton-row"></div></td></tr>
+              <tr><td colspan="7"><div class="skeleton skeleton-row"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ── New Invoice Modal ── -->
+<div class="modal-overlay" id="invoice-modal">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <span class="modal-title">New Invoice</span>
+      <button class="modal-close" data-close-modal>&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="invoice-form" onsubmit="submitInvoice(event)">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Client</label>
+            <input class="form-control" name="client" required placeholder="Client name">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Due Date</label>
+            <input class="form-control" type="date" name="due" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Line Items</label>
+          <div id="line-items">
+            <div class="line-item" style="display:flex;gap:10px;margin-bottom:8px;align-items:center">
+              <input class="form-control" name="item-desc[]" placeholder="Description" style="flex:2" required>
+              <input class="form-control" name="item-qty[]" type="number" min="1" value="1" placeholder="Qty" style="flex:0.5" required>
+              <input class="form-control" name="item-price[]" type="number" step="0.01" min="0" placeholder="Price" style="flex:1" required>
+              <span class="line-total" style="min-width:70px;text-align:right;font-weight:600;color:var(--text-primary)">$0.00</span>
+              <button type="button" class="btn btn-ghost btn-xs" onclick="removeLine(this)" title="Remove">&times;</button>
+            </div>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm mt-16" onclick="addLine()">+ Add Line</button>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;align-items:center;gap:16px;margin-top:16px;padding-top:12px;border-top:1px solid var(--border)">
+          <span style="font-size:14px;font-weight:600;color:var(--text-secondary)">Total: <span id="inv-total" style="color:var(--text-primary);font-size:18px">$0.00</span></span>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-close-modal>Cancel</button>
+      <button class="btn btn-primary" onclick="document.getElementById('invoice-form').requestSubmit()">Create Invoice</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script src="/admin/js/app.js"></script>
+<script>
+(async function(){
+  await initLayout({ page:'invoices', title:'Invoices' });
+
+  let allInvoices = [];
+
+  async function loadInvoices(){
+    try {
+      const data = await API.get('/admin/api/invoices');
+      allInvoices = data.invoices || [];
+      const s = data.summary || {};
+      const fmt = n => '$'+Number(n||0).toLocaleString();
+      document.getElementById('stat-revenue').textContent = fmt(s.revenue);
+      document.getElementById('stat-outstanding').textContent = fmt(s.outstanding);
+      document.getElementById('stat-overdue').textContent = fmt(s.overdue);
+      document.getElementById('stat-paid-month').textContent = fmt(s.paidMonth);
+      renderInvoices(allInvoices);
+    } catch(e){ Toast.error('Failed to load invoices'); }
+  }
+
+  function statusBadge(status){
+    const colors = { Paid:'#10b981', Unpaid:'#f59e0b', Overdue:'#ef4444' };
+    const c = colors[status]||'#6b7280';
+    return '<span class="badge" style="background:'+c+'18;color:'+c+';border:1px solid '+c+'30">'+escHtml(status)+'</span>';
+  }
+
+  window.renderInvoices = function(list){
+    const tbody = document.getElementById('invoices-tbody');
+    if(!list.length){
+      tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📄</div><div class="empty-text">No invoices found</div></div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = list.map(inv => `
+      <tr>
+        <td class="td-mono">${escHtml(inv.id)}</td>
+        <td>${escHtml(inv.client)}</td>
+        <td style="font-weight:600">$${Number(inv.amount).toLocaleString()}</td>
+        <td class="td-muted">${fmtDate(inv.date)}</td>
+        <td class="td-muted">${fmtDate(inv.due)}</td>
+        <td>${statusBadge(inv.status)}</td>
+        <td>
+          <div style="display:flex;gap:4px">
+            <button class="btn btn-ghost btn-xs" title="View">👁</button>
+            <button class="btn btn-ghost btn-xs" title="Send">📧</button>
+          </div>
+        </td>
+      </tr>`).join('');
+  };
+
+  window.filterInvoices = function(){
+    const q = document.getElementById('inv-search').value.toLowerCase();
+    const st = document.getElementById('inv-status-filter').value;
+    let filtered = allInvoices;
+    if(st) filtered = filtered.filter(i=>i.status===st);
+    if(q) filtered = filtered.filter(i=>i.id.toLowerCase().includes(q)||i.client.toLowerCase().includes(q));
+    renderInvoices(filtered);
+  };
+
+  // Line items
+  function calcTotals(){
+    let total = 0;
+    document.querySelectorAll('#line-items .line-item').forEach(row=>{
+      const qty = parseFloat(row.querySelector('[name="item-qty[]"]').value)||0;
+      const price = parseFloat(row.querySelector('[name="item-price[]"]').value)||0;
+      const lt = qty*price;
+      row.querySelector('.line-total').textContent = '$'+lt.toFixed(2);
+      total += lt;
+    });
+    document.getElementById('inv-total').textContent = '$'+total.toFixed(2);
+  }
+
+  window.addLine = function(){
+    const container = document.getElementById('line-items');
+    const div = document.createElement('div');
+    div.className = 'line-item';
+    div.style.cssText = 'display:flex;gap:10px;margin-bottom:8px;align-items:center';
+    div.innerHTML = `
+      <input class="form-control" name="item-desc[]" placeholder="Description" style="flex:2" required>
+      <input class="form-control" name="item-qty[]" type="number" min="1" value="1" placeholder="Qty" style="flex:0.5" required>
+      <input class="form-control" name="item-price[]" type="number" step="0.01" min="0" placeholder="Price" style="flex:1" required>
+      <span class="line-total" style="min-width:70px;text-align:right;font-weight:600;color:var(--text-primary)">$0.00</span>
+      <button type="button" class="btn btn-ghost btn-xs" onclick="removeLine(this)" title="Remove">&times;</button>`;
+    container.appendChild(div);
+    div.querySelectorAll('input[type="number"]').forEach(i=>i.addEventListener('input',calcTotals));
+  };
+
+  window.removeLine = function(btn){
+    const items = document.querySelectorAll('#line-items .line-item');
+    if(items.length<=1){ Toast.warn('Need at least one line item'); return; }
+    btn.closest('.line-item').remove();
+    calcTotals();
+  };
+
+  document.querySelectorAll('#line-items input[type="number"]').forEach(i=>i.addEventListener('input',calcTotals));
+
+  window.submitInvoice = async function(e){
+    e.preventDefault();
+    const form = e.target;
+    const client = form.querySelector('[name="client"]').value;
+    const due = form.querySelector('[name="due"]').value;
+    const descs = form.querySelectorAll('[name="item-desc[]"]');
+    const qtys = form.querySelectorAll('[name="item-qty[]"]');
+    const prices = form.querySelectorAll('[name="item-price[]"]');
+    const items = [];
+    let total = 0;
+    descs.forEach((d,i)=>{
+      const qty = parseFloat(qtys[i].value)||0;
+      const price = parseFloat(prices[i].value)||0;
+      items.push({ description:d.value, qty, price, total:qty*price });
+      total += qty*price;
+    });
+    try {
+      const res = await API.post('/admin/api/invoices',{ client, due, items, total });
+      Toast.success('Invoice '+res.id+' created');
+      closeModal('invoice-modal');
+      form.reset();
+      loadInvoices();
+    } catch(e){ Toast.error(e.message); }
+  };
+
+  initModal('invoice-modal');
+  loadInvoices();
+})();
+</script>
+</body>
+</html>

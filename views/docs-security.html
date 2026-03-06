@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Security &mdash; NetSudo Documentation</title>
+  <link rel="stylesheet" href="/docs/docs.css">
+</head>
+<body>
+  <div class="sidebar-overlay"></div>
+  <header class="docs-header">
+    <div class="docs-header-inner">
+      <button class="sidebar-toggle" onclick="toggleSidebar()">&#9776;</button>
+      <a href="/docs" class="docs-logo">NetSudo Documentation</a>
+      <span class="version-badge">v2.0</span>
+      <div class="search-wrap">
+        <input type="text" id="search" placeholder="Search docs...">
+        <div id="search-results" class="search-results"></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="docs-layout">
+    <aside class="docs-sidebar" id="sidebar">
+      <nav>
+        <div class="nav-section">Docs</div>
+        <a href="/docs">&#127968; Overview</a>
+        <a href="/docs/api">&#128268; API Reference</a>
+        <a href="/docs/security" class="active">&#128274; Security</a>
+
+        <div class="nav-section">On This Page</div>
+        <a href="#2fa-setup">&#128272; 2FA Setup</a>
+        <a href="#password-policy">&#128273; Password Policy</a>
+        <a href="#session-management">&#128336; Session Management</a>
+        <a href="#audit-log">&#128203; Audit Log</a>
+        <a href="#rate-limiting">&#128737; Rate Limiting</a>
+        <a href="#csp-headers">&#128737; CSP &amp; Headers</a>
+      </nav>
+    </aside>
+
+    <main class="docs-content">
+      <h1>Security Documentation</h1>
+      <p class="subtitle">Two-factor authentication, password policies, session management, and audit logging for the NetSudo platform.</p>
+
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!--  2FA SETUP                                                      -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <h2 id="2fa-setup">Two-Factor Authentication (2FA) Setup</h2>
+      <p>NetSudo supports <strong>TOTP-based two-factor authentication</strong> using the <code>speakeasy</code> library. Once enabled, users must enter a 6-digit code from their authenticator app after entering their password.</p>
+
+      <h3 id="2fa-compatible-apps">Compatible Apps</h3>
+      <ul>
+        <li><strong>Google Authenticator</strong> (iOS / Android)</li>
+        <li><strong>Authy</strong> (iOS / Android / Desktop)</li>
+        <li><strong>Microsoft Authenticator</strong> (iOS / Android)</li>
+        <li><strong>1Password</strong> (built-in TOTP support)</li>
+        <li>Any app that supports standard TOTP (RFC 6238)</li>
+      </ul>
+
+      <h3 id="2fa-enable-steps">Enabling 2FA &mdash; Step by Step</h3>
+      <ol class="steps">
+        <li>
+          <strong>Go to Settings</strong><br>
+          Navigate to <code>/admin/settings</code> from the sidebar or go directly to the Settings page.
+        </li>
+        <li>
+          <strong>Open the 2FA section</strong><br>
+          Scroll to the <strong>Two-Factor Authentication</strong> section. You'll see the current status (Disabled/Enabled).
+        </li>
+        <li>
+          <strong>Click "Set Up 2FA"</strong><br>
+          The system generates a unique TOTP secret and displays a QR code. This QR code contains your secret key encoded as an <code>otpauth://</code> URL.
+        </li>
+        <li>
+          <strong>Scan the QR code</strong><br>
+          Open your authenticator app and scan the QR code. The app will create a new entry labeled <strong>"NetSudo (yourusername)"</strong> that generates 6-digit codes every 30 seconds.
+        </li>
+        <li>
+          <strong>Enter the verification code</strong><br>
+          Type the current 6-digit code from your authenticator app into the verification field. This confirms you've successfully set up the app.
+        </li>
+        <li>
+          <strong>Save your backup secret</strong><br>
+          The text-based secret key is also displayed below the QR code (e.g., <code>JBSWY3DPEHPK3PXP</code>). Save this somewhere secure &mdash; you'll need it if you lose access to your authenticator app.
+        </li>
+        <li>
+          <strong>2FA is now active</strong><br>
+          On your next login, after entering your password, you'll be redirected to the 2FA page where you'll enter the current 6-digit code.
+        </li>
+      </ol>
+
+      <div class="alert alert-warn">
+        <strong>Save Your Secret Key</strong>
+        If you lose access to your authenticator app and don't have your backup secret key, you will need a superadmin to reset your 2FA by directly updating the database. Store your secret key in a password manager or write it down securely.
+      </div>
+
+      <h3 id="2fa-login-flow">Login Flow with 2FA</h3>
+      <ol class="steps">
+        <li>
+          <strong>Enter username and password</strong><br>
+          Go to <code>/admin/login</code> and enter your credentials as usual.
+        </li>
+        <li>
+          <strong>Redirected to 2FA page</strong><br>
+          If your password is correct and 2FA is enabled, you're redirected to <code>/admin/2fa</code>.
+        </li>
+        <li>
+          <strong>Enter your 6-digit code</strong><br>
+          Open your authenticator app and enter the current code. Codes refresh every 30 seconds. There is a 1-code window tolerance (the previous code is also accepted).
+        </li>
+        <li>
+          <strong>Access granted</strong><br>
+          On success, you're redirected to the dashboard with a full session.
+        </li>
+      </ol>
+
+      <div class="alert alert-danger">
+        <strong>Failed 2FA Attempts</strong>
+        After <strong>3 consecutive wrong 2FA codes</strong>, your session is destroyed and you're redirected back to the login page. You must re-enter your username and password. This prevents brute-force TOTP attacks.
+      </div>
+
+      <h3 id="2fa-disable">Disabling 2FA</h3>
+      <p>To disable 2FA:</p>
+      <ol>
+        <li>Go to <code>/admin/settings</code></li>
+        <li>Click <strong>"Disable 2FA"</strong></li>
+        <li>Enter your current password to confirm</li>
+        <li>2FA is removed &mdash; future logins will only require username and password</li>
+      </ol>
+
+      <h3 id="2fa-api">2FA API Endpoints</h3>
+      <table>
+        <thead>
+          <tr><th>Method</th><th>Path</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="method method-get">GET</span></td><td><code>/admin/settings/2fa</code></td><td>Get 2FA status. If disabled, returns QR code and secret for setup.</td></tr>
+          <tr><td><span class="method method-post">POST</span></td><td><code>/admin/settings/2fa/enable</code></td><td>Enable 2FA by submitting a valid TOTP code. Requires a pending secret in session.</td></tr>
+          <tr><td><span class="method method-post">POST</span></td><td><code>/admin/settings/2fa/disable</code></td><td>Disable 2FA. Requires current password in request body.</td></tr>
+        </tbody>
+      </table>
+
+      <h4>2FA API Example</h4>
+      <div class="code-block-header">
+        <span>bash</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+<pre><code># Step 1: Get 2FA setup info (QR code + secret)
+curl https://netsudo.com/admin/settings/2fa \
+  -b cookies.txt
+# Response (2FA not yet enabled):
+# {
+#   "enabled": false,
+#   "secret": "JBSWY3DPEHPK3PXP",
+#   "qr": "data:image/png;base64,..."
+# }
+
+# Step 2: Enable 2FA with a valid TOTP code
+curl -X POST https://netsudo.com/admin/settings/2fa/enable \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{"token": "123456"}'
+# Response: {"success": true}
+
+# Disable 2FA (requires password)
+curl -X POST https://netsudo.com/admin/settings/2fa/disable \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{"password": "YourCurrentPassword"}'
+# Response: {"success": true}</code></pre>
+
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!--  PASSWORD POLICY                                                -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <h2 id="password-policy">Password Policy</h2>
+      <p>NetSudo enforces the following password requirements:</p>
+
+      <table>
+        <thead>
+          <tr><th>Rule</th><th>Requirement</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Minimum length</strong></td><td>8 characters</td></tr>
+          <tr><td><strong>Hashing algorithm</strong></td><td>bcrypt with 10 salt rounds</td></tr>
+          <tr><td><strong>Storage</strong></td><td>Only the hash is stored &mdash; plaintext is never saved</td></tr>
+          <tr><td><strong>Case sensitivity</strong></td><td>Passwords are case-sensitive</td></tr>
+        </tbody>
+      </table>
+
+      <h3 id="password-change">Changing Your Password</h3>
+      <ol class="steps">
+        <li>
+          <strong>Navigate to Settings</strong><br>
+          Go to <code>/admin/settings</code> from the sidebar.
+        </li>
+        <li>
+          <strong>Enter your current password</strong><br>
+          This verifies your identity before allowing a password change.
+        </li>
+        <li>
+          <strong>Enter your new password</strong><br>
+          Must be at least 8 characters. Use a strong, unique password that you don't use elsewhere.
+        </li>
+        <li>
+          <strong>Submit</strong><br>
+          Your password is immediately updated. Your current session remains active.
+        </li>
+      </ol>
+
+      <h3 id="password-best-practices">Best Practices</h3>
+      <ul>
+        <li>Use a <strong>password manager</strong> (1Password, Bitwarden, etc.) to generate and store strong passwords</li>
+        <li>Use at least <strong>12+ characters</strong> with a mix of uppercase, lowercase, numbers, and symbols</li>
+        <li>Never reuse passwords across different services</li>
+        <li>Enable <strong>2FA</strong> in addition to a strong password for maximum security</li>
+        <li>Change your password immediately if you suspect it has been compromised</li>
+      </ul>
+
+      <h3 id="password-reset">Password Reset (Admin)</h3>
+      <p>There is no self-service password reset. If you forget your password:</p>
+      <ul>
+        <li>Contact a <strong>superadmin</strong> who can reset your password via the Users management page (<code>/admin/users</code>)</li>
+        <li>The superadmin can update your password through <code>PUT /admin/api/users/:id</code></li>
+        <li>After reset, immediately change to your own password via Settings</li>
+      </ul>
+
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!--  SESSION MANAGEMENT                                             -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <h2 id="session-management">Session Management</h2>
+      <p>NetSudo uses <strong>server-side sessions</strong> via <code>express-session</code>. Sessions are stored in server memory (not in cookies or the database).</p>
+
+      <h3 id="session-cookie">Session Cookie Configuration</h3>
+      <table>
+        <thead>
+          <tr><th>Property</th><th>Value</th><th>Purpose</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>httpOnly</code></td>
+            <td><code>true</code></td>
+            <td>Prevents JavaScript from reading the session cookie, protecting against XSS-based session theft</td>
+          </tr>
+          <tr>
+            <td><code>secure</code></td>
+            <td><code>true</code></td>
+            <td>Cookie is only transmitted over HTTPS &mdash; never sent over plain HTTP</td>
+          </tr>
+          <tr>
+            <td><code>sameSite</code></td>
+            <td><code>strict</code></td>
+            <td>Cookie is never sent with cross-origin requests, preventing CSRF attacks</td>
+          </tr>
+          <tr>
+            <td><code>maxAge</code></td>
+            <td><code>8 hours</code></td>
+            <td>Session automatically expires after 8 hours, requiring re-authentication</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 id="session-lifecycle">Session Lifecycle</h3>
+      <ol>
+        <li><strong>Login</strong> &mdash; A new session is created with the user's <code>id</code>, <code>username</code>, and <code>role</code></li>
+        <li><strong>2FA (if enabled)</strong> &mdash; During 2FA verification, the user data is stored as <code>pendingUser</code> until the TOTP code is verified</li>
+        <li><strong>Active</strong> &mdash; Session is valid for all authenticated requests. The session cookie (<code>connect.sid</code>) is sent with every request</li>
+        <li><strong>Expiry</strong> &mdash; After 8 hours of inactivity, the session expires automatically</li>
+        <li><strong>Logout</strong> &mdash; Calling <code>GET /admin/logout</code> destroys the session immediately</li>
+      </ol>
+
+      <h3 id="session-security">Security Implications</h3>
+      <ul>
+        <li><strong>No session persistence</strong> &mdash; If the server restarts, all sessions are destroyed and users must log in again</li>
+        <li><strong>Single server</strong> &mdash; Server-side sessions are stored in memory, so they don't work across multiple server instances without a shared session store</li>
+        <li><strong>Cookie theft protection</strong> &mdash; The combination of <code>httpOnly</code>, <code>secure</code>, and <code>sameSite: strict</code> makes session hijacking extremely difficult</li>
+        <li><strong>No remember-me</strong> &mdash; There is no "remember me" option; all sessions expire after 8 hours</li>
+      </ul>
+
+      <div class="alert alert-info">
+        <strong>Trust Proxy</strong>
+        The server has <code>trust proxy</code> enabled (<code>app.set('trust proxy', 1)</code>) to correctly handle the client's IP address when behind Nginx reverse proxy. This ensures rate limiting and audit logs capture the real client IP, not the proxy IP.
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!--  AUDIT LOG                                                      -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <h2 id="audit-log">Audit Log</h2>
+      <p>NetSudo maintains two types of audit logs: <strong>login attempts</strong> and <strong>activity logs</strong>.</p>
+
+      <h3 id="login-attempts-log">Login Attempts Log</h3>
+      <p>Every login attempt (successful or failed) is recorded in the <code>login_attempts</code> table.</p>
+
+      <table>
+        <thead>
+          <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>id</code></td><td>Integer</td><td>Auto-incrementing primary key</td></tr>
+          <tr><td><code>username</code></td><td>String</td><td>Username attempted (may not be a valid user)</td></tr>
+          <tr><td><code>ip</code></td><td>String</td><td>Client IP address (respects X-Forwarded-For)</td></tr>
+          <tr><td><code>success</code></td><td>Boolean</td><td><code>true</code> for successful login, <code>false</code> for failed</td></tr>
+          <tr><td><code>user_agent</code></td><td>String</td><td>Browser/client user agent string</td></tr>
+          <tr><td><code>created_at</code></td><td>Timestamp</td><td>When the attempt occurred</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Viewing Login Attempts</h4>
+      <p>Superadmins can view the last 100 login attempts via:</p>
+      <div class="code-block-header">
+        <span>bash</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+<pre><code>curl https://netsudo.com/admin/api/login-attempts \
+  -b cookies.txt
+
+# Example response:
+# [
+#   {
+#     "id": 147,
+#     "username": "admin",
+#     "ip": "203.0.113.42",
+#     "success": true,
+#     "user_agent": "Mozilla/5.0 ...",
+#     "created_at": "2026-03-06T14:32:00.000Z"
+#   },
+#   {
+#     "id": 146,
+#     "username": "admin",
+#     "ip": "198.51.100.7",
+#     "success": false,
+#     "user_agent": "curl/8.0",
+#     "created_at": "2026-03-06T13:10:00.000Z"
+#   }
+# ]</code></pre>
+
+      <h3 id="what-to-look-for">What to Look For</h3>
+      <ul>
+        <li><strong>Multiple failed attempts from one IP</strong> &mdash; Possible brute-force attack. The account lockout mechanism handles this automatically after 5 failures</li>
+        <li><strong>Failed attempts for unknown usernames</strong> &mdash; Someone is guessing usernames. Consider IP blocking at the Nginx level</li>
+        <li><strong>Successful logins from unfamiliar IPs</strong> &mdash; Could indicate credential compromise. Verify with the user and consider requiring 2FA</li>
+        <li><strong>Unusual user agents</strong> &mdash; Automated tools (curl, python-requests) hitting the login endpoint may indicate an attack</li>
+        <li><strong>Login outside business hours</strong> &mdash; Compare timestamps against expected usage patterns</li>
+      </ul>
+
+      <h3 id="activity-log">Activity Log</h3>
+      <p>The <code>activity_log</code> table records all CRM actions performed by authenticated users. Each entry is tied to a contact.</p>
+
+      <table>
+        <thead>
+          <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>id</code></td><td>Integer</td><td>Auto-incrementing primary key</td></tr>
+          <tr><td><code>contact_id</code></td><td>Integer</td><td>The contact this action relates to</td></tr>
+          <tr><td><code>admin_user</code></td><td>String</td><td>Username of the admin who performed the action</td></tr>
+          <tr><td><code>action</code></td><td>String</td><td>Action type: <code>created</code>, <code>updated</code>, <code>deleted</code>, <code>stage_changed</code>, <code>note</code>, <code>email</code></td></tr>
+          <tr><td><code>detail</code></td><td>String</td><td>Human-readable description of what changed</td></tr>
+          <tr><td><code>created_at</code></td><td>Timestamp</td><td>When the action occurred</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Activity Action Types</h4>
+      <table>
+        <thead>
+          <tr><th>Action</th><th>When It's Logged</th><th>Example Detail</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>created</code></td><td>New contact added</td><td>"Contact created from website"</td></tr>
+          <tr><td><code>updated</code></td><td>Contact fields changed</td><td>"Contact details updated"</td></tr>
+          <tr><td><code>deleted</code></td><td>Contact removed</td><td>"Contact deleted: Jane Smith"</td></tr>
+          <tr><td><code>stage_changed</code></td><td>Pipeline stage moved</td><td>"Stage &rarr; Closed Won"</td></tr>
+          <tr><td><code>note</code></td><td>Note added to contact</td><td>The note text itself</td></tr>
+          <tr><td><code>email</code></td><td>Email action logged</td><td>"Email stub: Project update"</td></tr>
+        </tbody>
+      </table>
+
+      <h3 id="telegram-alerts">Telegram Alerts</h3>
+      <p>Certain events trigger automatic Telegram notifications to the admin:</p>
+      <table>
+        <thead>
+          <tr><th>Event</th><th>Trigger</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Account Lockout</strong></td><td>5 consecutive failed login attempts for any user</td></tr>
+          <tr><td><strong>New Website Lead</strong></td><td>Contact created with <code>source: website</code></td></tr>
+          <tr><td><strong>Closed Won</strong></td><td>Contact stage changed to "Closed Won"</td></tr>
+          <tr><td><strong>Loci Beta Signup</strong></td><td>New beta signup via <code>/admin/loci/signup</code></td></tr>
+          <tr><td><strong>Weekly Report</strong></td><td>Every Monday at 9 AM EST (automated)</td></tr>
+        </tbody>
+      </table>
+
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!--  RATE LIMITING                                                  -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <h2 id="rate-limiting">Rate Limiting</h2>
+      <p>NetSudo uses <code>express-rate-limit</code> to prevent brute-force attacks on the login endpoint.</p>
+
+      <table>
+        <thead>
+          <tr><th>Setting</th><th>Value</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Window</strong></td><td>15 minutes</td></tr>
+          <tr><td><strong>Max requests</strong></td><td>10 per window per IP</td></tr>
+          <tr><td><strong>Applies to</strong></td><td><code>POST /admin/login</code></td></tr>
+          <tr><td><strong>Headers</strong></td><td>Standard rate-limit headers (<code>RateLimit-*</code>)</td></tr>
+          <tr><td><strong>Response when limited</strong></td><td><code>429</code> with <code>{"error": "Too many login attempts. Try again in 15 minutes."}</code></td></tr>
+        </tbody>
+      </table>
+
+      <h3 id="account-lockout">Account Lockout</h3>
+      <p>In addition to IP-based rate limiting, NetSudo implements per-account lockout:</p>
+      <ol>
+        <li>Each failed login increments the user's <code>failed_attempts</code> counter</li>
+        <li>After <strong>5 consecutive failures</strong>, the account is locked for <strong>15 minutes</strong></li>
+        <li>A <strong>Telegram notification</strong> is sent to the admin with the username and IP address</li>
+        <li>The lockout message shows the remaining minutes until the account unlocks</li>
+        <li>A successful login <strong>resets</strong> the counter to 0 and clears any lockout</li>
+      </ol>
+
+      <div class="alert alert-info">
+        <strong>Dual Protection</strong>
+        Rate limiting protects against rapid brute-force from a single IP. Account lockout protects against distributed attacks across multiple IPs targeting the same account. Together, they provide comprehensive protection.
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!--  CSP & HEADERS                                                 -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <h2 id="csp-headers">Content Security Policy &amp; Headers</h2>
+      <p>NetSudo uses <strong>Helmet.js</strong> to set security headers on all responses. Helmet configures multiple HTTP headers that protect against common web vulnerabilities.</p>
+
+      <h3 id="csp-directives">CSP Directives</h3>
+      <table>
+        <thead>
+          <tr><th>Directive</th><th>Value</th><th>Purpose</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>default-src</code></td>
+            <td><code>'self'</code></td>
+            <td>Only allow resources from the same origin by default</td>
+          </tr>
+          <tr>
+            <td><code>style-src</code></td>
+            <td><code>'self'</code>, <code>'unsafe-inline'</code>, Google Fonts, cdnjs</td>
+            <td>Allow styles from self, inline styles, Google Fonts, and cdnjs (Font Awesome)</td>
+          </tr>
+          <tr>
+            <td><code>font-src</code></td>
+            <td><code>'self'</code>, Google Fonts</td>
+            <td>Allow fonts from self and Google Fonts CDN</td>
+          </tr>
+          <tr>
+            <td><code>script-src</code></td>
+            <td><code>'self'</code>, <code>'unsafe-inline'</code>, cdnjs</td>
+            <td>Allow scripts from self, inline scripts, and cdnjs (SortableJS, etc.)</td>
+          </tr>
+          <tr>
+            <td><code>img-src</code></td>
+            <td><code>'self'</code>, <code>data:</code>, <code>https:</code></td>
+            <td>Allow images from self, data URIs (QR codes), and any HTTPS source</td>
+          </tr>
+          <tr>
+            <td><code>connect-src</code></td>
+            <td><code>'self'</code></td>
+            <td>Only allow API calls to the same origin</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 id="other-headers">Other Security Headers</h3>
+      <p>Helmet also sets these headers automatically:</p>
+      <ul>
+        <li><strong>X-Content-Type-Options: nosniff</strong> &mdash; Prevents MIME type sniffing</li>
+        <li><strong>X-Frame-Options: SAMEORIGIN</strong> &mdash; Prevents clickjacking via iframes</li>
+        <li><strong>X-XSS-Protection</strong> &mdash; Legacy XSS protection header</li>
+        <li><strong>Strict-Transport-Security</strong> &mdash; Enforces HTTPS connections</li>
+        <li><strong>X-DNS-Prefetch-Control: off</strong> &mdash; Disables DNS prefetching</li>
+        <li><strong>X-Download-Options: noopen</strong> &mdash; Prevents IE from opening downloads directly</li>
+        <li><strong>X-Permitted-Cross-Domain-Policies: none</strong> &mdash; Blocks Flash/PDF cross-domain access</li>
+        <li><strong>Referrer-Policy: no-referrer</strong> &mdash; Prevents referrer leakage</li>
+      </ul>
+
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!--  SECURITY CHECKLIST                                             -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <h2 id="security-checklist">Security Checklist for Staff</h2>
+      <p>Follow these practices to keep your account and the platform secure:</p>
+
+      <table>
+        <thead>
+          <tr><th>&#10003;</th><th>Action</th><th>Priority</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>&#9744;</td><td>Enable 2FA on your account</td><td><strong style="color:#ef4444">Critical</strong></td></tr>
+          <tr><td>&#9744;</td><td>Use a unique, strong password (12+ characters)</td><td><strong style="color:#ef4444">Critical</strong></td></tr>
+          <tr><td>&#9744;</td><td>Store your 2FA backup secret in a password manager</td><td><strong style="color:#f59e0b">High</strong></td></tr>
+          <tr><td>&#9744;</td><td>Log out when leaving your workstation</td><td><strong style="color:#f59e0b">High</strong></td></tr>
+          <tr><td>&#9744;</td><td>Don't share your login credentials with anyone</td><td><strong style="color:#ef4444">Critical</strong></td></tr>
+          <tr><td>&#9744;</td><td>Report suspicious login attempts to your admin</td><td><strong style="color:#f59e0b">High</strong></td></tr>
+          <tr><td>&#9744;</td><td>Use a private/incognito browser on shared computers</td><td><strong>Medium</strong></td></tr>
+          <tr><td>&#9744;</td><td>Keep your browser and OS up to date</td><td><strong>Medium</strong></td></tr>
+        </tbody>
+      </table>
+
+      <!-- ── Footer ──────────────────────────────────────────────────── -->
+      <div class="docs-footer">
+        <span><a href="/docs">&larr; Back to Documentation</a></span>
+        <span><a href="/docs/api">API Reference &rarr;</a></span>
+      </div>
+    </main>
+
+    <aside class="docs-toc" id="toc"></aside>
+  </div>
+
+  <script src="/docs/docs.js"></script>
+  <script>
+  function copyCode(btn) {
+    var pre = btn.closest('.code-block-header').nextElementSibling;
+    var code = pre.querySelector('code') || pre;
+    navigator.clipboard.writeText(code.textContent).then(function() {
+      btn.textContent = 'Copied!';
+      setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+    });
+  }
+  </script>
+</body>
+</html>

@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Booking — NetSudo Admin</title>
+  <link rel="stylesheet" href="/admin/css/style.css">
+  <style>
+    .booking-layout { display:grid; grid-template-columns:1fr 300px; gap:20px; }
+    @media(max-width:1024px){ .booking-layout { grid-template-columns:1fr; } }
+
+    .cal-header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border); }
+    .cal-nav { display:flex; align-items:center; gap:10px; }
+    .cal-title { font-size:16px; font-weight:700; color:var(--text-primary); min-width:180px; text-align:center; }
+
+    .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); }
+    .cal-day-label { padding:8px 4px; text-align:center; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); border-bottom:1px solid var(--border); }
+    .cal-cell {
+      min-height:90px; padding:4px; border-right:1px solid var(--border); border-bottom:1px solid var(--border);
+      position:relative; cursor:pointer; transition:background var(--transition);
+    }
+    .cal-cell:nth-child(7n){ border-right:none; }
+    .cal-cell:hover { background:rgba(59,130,246,0.04); }
+    .cal-cell.other-month { opacity:0.3; }
+    .cal-cell.today { background:rgba(59,130,246,0.08); }
+    .cal-cell.today .cal-date { background:var(--accent); color:#fff; border-radius:50%; width:24px; height:24px; display:flex; align-items:center; justify-content:center; }
+    .cal-date { font-size:12px; font-weight:600; color:var(--text-secondary); padding:2px 4px; margin-bottom:2px; }
+
+    .cal-event {
+      font-size:10.5px; padding:2px 5px; border-radius:3px; margin-bottom:2px;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer;
+      font-weight:500; line-height:1.4;
+    }
+    .cal-event.type-consultation { background:rgba(99,102,241,0.2); color:#818cf8; border-left:2px solid #6366f1; }
+    .cal-event.type-project-review { background:rgba(6,182,212,0.2); color:#22d3ee; border-left:2px solid #06b6d4; }
+    .cal-event.type-support { background:rgba(245,158,11,0.2); color:#fbbf24; border-left:2px solid #f59e0b; }
+    .cal-event.type-installation { background:rgba(16,185,129,0.2); color:#34d399; border-left:2px solid #10b981; }
+
+    .upcoming-list { display:flex; flex-direction:column; gap:8px; }
+    .upcoming-item {
+      display:flex; gap:10px; padding:10px 12px; border-radius:var(--radius-sm);
+      border:1px solid var(--border); transition:all var(--transition); cursor:pointer;
+    }
+    .upcoming-item:hover { border-color:var(--accent); background:rgba(59,130,246,0.04); }
+    .upcoming-dot { width:8px; height:8px; border-radius:50%; margin-top:5px; flex-shrink:0; }
+    .upcoming-info { flex:1; min-width:0; }
+    .upcoming-client { font-size:13px; font-weight:600; color:var(--text-primary); }
+    .upcoming-type { font-size:11.5px; color:var(--text-secondary); }
+    .upcoming-time { font-size:11px; color:var(--text-muted); margin-top:2px; }
+  </style>
+</head>
+<body>
+<div class="app-layout" id="app-layout">
+  <div class="sidebar-overlay"></div>
+  <aside id="sidebar"></aside>
+  <div class="main-wrapper">
+    <header id="topbar"></header>
+    <main class="main-content">
+
+      <div class="page-header">
+        <div>
+          <h2 class="page-heading">Booking Scheduler</h2>
+          <p class="page-sub">Manage appointments and schedule meetings</p>
+        </div>
+        <button class="btn btn-primary" onclick="openModal('booking-modal')">+ New Booking</button>
+      </div>
+
+      <div class="booking-layout">
+        <!-- Calendar -->
+        <div class="card" style="overflow:hidden">
+          <div class="cal-header">
+            <button class="btn btn-secondary btn-sm" id="cal-prev">&larr;</button>
+            <span class="cal-title" id="cal-title"></span>
+            <div class="cal-nav">
+              <button class="btn btn-ghost btn-sm" id="cal-today">Today</button>
+              <button class="btn btn-secondary btn-sm" id="cal-next">&rarr;</button>
+            </div>
+          </div>
+          <div class="cal-grid" id="cal-grid"></div>
+        </div>
+
+        <!-- Upcoming -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Upcoming</span>
+          </div>
+          <div class="card-body" id="upcoming-list">
+            <div class="skeleton skeleton-card" style="height:60px;margin-bottom:8px"></div>
+            <div class="skeleton skeleton-card" style="height:60px;margin-bottom:8px"></div>
+            <div class="skeleton skeleton-card" style="height:60px"></div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ── New Booking Modal ── -->
+<div class="modal-overlay" id="booking-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">New Booking</span>
+      <button class="modal-close" data-close-modal>&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="booking-form" onsubmit="submitBooking(event)">
+        <div class="form-group">
+          <label class="form-label">Client</label>
+          <input class="form-control" name="client" required placeholder="Client name">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Service Type</label>
+          <select class="form-control" name="type" required>
+            <option value="Consultation">Consultation</option>
+            <option value="Project Review">Project Review</option>
+            <option value="Support">Support</option>
+            <option value="Installation">Installation</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Date & Time</label>
+            <input class="form-control" type="datetime-local" name="date" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Duration (min)</label>
+            <select class="form-control" name="duration">
+              <option value="15">15 min</option>
+              <option value="30" selected>30 min</option>
+              <option value="45">45 min</option>
+              <option value="60">60 min</option>
+              <option value="90">90 min</option>
+              <option value="120">2 hours</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notes</label>
+          <textarea class="form-control" name="notes" rows="2" placeholder="Meeting notes or agenda"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Video Link (optional)</label>
+          <input class="form-control" name="video" placeholder="https://meet.google.com/...">
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-close-modal>Cancel</button>
+      <button class="btn btn-primary" onclick="document.getElementById('booking-form').requestSubmit()">Book Appointment</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script src="/admin/js/app.js"></script>
+<script>
+(async function(){
+  await initLayout({ page:'booking', title:'Booking' });
+
+  let allBookings = [];
+  let viewYear, viewMonth;
+
+  const TYPE_COLOR = {
+    'Consultation':'#6366f1','Project Review':'#06b6d4','Support':'#f59e0b','Installation':'#10b981'
+  };
+  function typeClass(t){ return 'type-'+(t||'').toLowerCase().replace(/\s+/g,'-'); }
+
+  // Calendar
+  const now = new Date();
+  viewYear = now.getFullYear();
+  viewMonth = now.getMonth();
+
+  function renderCalendar(){
+    const grid = document.getElementById('cal-grid');
+    const title = document.getElementById('cal-title');
+    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    title.textContent = months[viewMonth]+' '+viewYear;
+
+    const firstDay = new Date(viewYear, viewMonth, 1);
+    const lastDay = new Date(viewYear, viewMonth+1, 0);
+    const startDow = firstDay.getDay();
+    const daysInMonth = lastDay.getDate();
+    const prevMonth = new Date(viewYear, viewMonth, 0);
+    const daysInPrev = prevMonth.getDate();
+
+    const today = new Date();
+    const todayStr = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+
+    // Build event map by date
+    const eventMap = {};
+    allBookings.forEach(b=>{
+      const d = b.date.split('T')[0];
+      if(!eventMap[d]) eventMap[d]=[];
+      eventMap[d].push(b);
+    });
+
+    let html = '';
+    const dayLabels = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    dayLabels.forEach(d=>{ html += '<div class="cal-day-label">'+d+'</div>'; });
+
+    // Previous month trailing days
+    for(let i=startDow-1; i>=0; i--){
+      const day = daysInPrev-i;
+      html += '<div class="cal-cell other-month"><div class="cal-date">'+day+'</div></div>';
+    }
+
+    // Current month
+    for(let d=1; d<=daysInMonth; d++){
+      const dateStr = viewYear+'-'+String(viewMonth+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+      const isToday = dateStr===todayStr;
+      const events = eventMap[dateStr]||[];
+      html += '<div class="cal-cell'+(isToday?' today':'')+'" onclick="openBookingForDate(\''+dateStr+'\')">';
+      html += '<div class="cal-date">'+d+'</div>';
+      events.forEach(ev=>{
+        const time = new Date(ev.date).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+        html += '<div class="cal-event '+typeClass(ev.type)+'" title="'+escHtml(ev.client)+' - '+escHtml(ev.type)+'">'+time+' '+escHtml(ev.client)+'</div>';
+      });
+      html += '</div>';
+    }
+
+    // Next month leading days
+    const totalCells = startDow + daysInMonth;
+    const remaining = (7 - totalCells%7)%7;
+    for(let d=1; d<=remaining; d++){
+      html += '<div class="cal-cell other-month"><div class="cal-date">'+d+'</div></div>';
+    }
+
+    grid.innerHTML = html;
+  }
+
+  function renderUpcoming(){
+    const container = document.getElementById('upcoming-list');
+    const nowMs = Date.now();
+    const upcoming = allBookings
+      .filter(b=>new Date(b.date).getTime()>=nowMs)
+      .sort((a,b)=>new Date(a.date)-new Date(b.date))
+      .slice(0,8);
+
+    if(!upcoming.length){
+      container.innerHTML = '<div class="empty-state"><div class="empty-icon">📅</div><div class="empty-text">No upcoming appointments</div></div>';
+      return;
+    }
+
+    container.innerHTML = '<div class="upcoming-list">' + upcoming.map(b=>{
+      const c = TYPE_COLOR[b.type]||'#6b7280';
+      return `
+        <div class="upcoming-item">
+          <div class="upcoming-dot" style="background:${c}"></div>
+          <div class="upcoming-info">
+            <div class="upcoming-client">${escHtml(b.client)}</div>
+            <div class="upcoming-type">${escHtml(b.type)} &middot; ${b.duration}min</div>
+            <div class="upcoming-time">${fmtDateTime(b.date)}</div>
+          </div>
+        </div>`;
+    }).join('') + '</div>';
+  }
+
+  window.openBookingForDate = function(dateStr){
+    const dtInput = document.querySelector('#booking-form [name="date"]');
+    dtInput.value = dateStr+'T09:00';
+    openModal('booking-modal');
+  };
+
+  async function loadBookings(){
+    try {
+      const data = await API.get('/admin/api/bookings');
+      allBookings = data.bookings || [];
+      renderCalendar();
+      renderUpcoming();
+    } catch(e){ Toast.error('Failed to load bookings'); }
+  }
+
+  document.getElementById('cal-prev').onclick = ()=>{ viewMonth--; if(viewMonth<0){viewMonth=11;viewYear--;} renderCalendar(); };
+  document.getElementById('cal-next').onclick = ()=>{ viewMonth++; if(viewMonth>11){viewMonth=0;viewYear++;} renderCalendar(); };
+  document.getElementById('cal-today').onclick = ()=>{ const n=new Date(); viewYear=n.getFullYear(); viewMonth=n.getMonth(); renderCalendar(); };
+
+  window.submitBooking = async function(e){
+    e.preventDefault();
+    const form = e.target;
+    const payload = {
+      client: form.querySelector('[name="client"]').value,
+      type: form.querySelector('[name="type"]').value,
+      date: form.querySelector('[name="date"]').value,
+      duration: parseInt(form.querySelector('[name="duration"]').value),
+      notes: form.querySelector('[name="notes"]').value,
+      video: form.querySelector('[name="video"]').value,
+    };
+    try {
+      await API.post('/admin/api/bookings', payload);
+      Toast.success('Booking created');
+      closeModal('booking-modal');
+      form.reset();
+      loadBookings();
+    } catch(e){ Toast.error(e.message); }
+  };
+
+  initModal('booking-modal');
+  loadBookings();
+})();
+</script>
+</body>
+</html>

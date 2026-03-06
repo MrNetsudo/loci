@@ -744,6 +744,56 @@ app.post("/api/hereya/venues",(req,res)=>res.json({ok:true}));
 app.get("/api/hereya/rooms/live",(req,res)=>res.json({rooms:[{venue:"The Rusty Nail",status:"active",occupancy:47,started:new Date(Date.now()-3600000).toISOString()},{venue:"MSG",status:"warming",occupancy:12,started:new Date(Date.now()-600000).toISOString()}]}));
 app.get("/api/hereya/moderation",(req,res)=>res.json({flagged:[{id:1,snippet:"Hey check out this link...",venue:"The Rusty Nail",reason:"spam",time:new Date().toISOString()}]}));
 
+
+// ── Client Portal ─────────────────────────────────────────────────────────────
+function requireClient(req,res,next){if(req.session?.clientId)return next();res.redirect("/client/login")}
+app.get("/client/login",(req,res)=>res.sendFile(path.join(__dirname,"views/client-login.html")));
+app.post("/client/login",(req,res)=>{req.session.clientId=req.body.email;res.redirect("/client/portal")});
+app.get("/client/portal",requireClient,(req,res)=>res.sendFile(path.join(__dirname,"views/client-portal.html")));
+app.get("/client/tickets",requireClient,(req,res)=>res.sendFile(path.join(__dirname,"views/client-tickets.html")));
+app.get("/client/invoices",requireClient,(req,res)=>res.sendFile(path.join(__dirname,"views/client-invoices.html")));
+app.get("/client/projects",requireClient,(req,res)=>res.sendFile(path.join(__dirname,"views/client-projects.html")));
+app.get("/client/logout",(req,res)=>{req.session.destroy();res.redirect("/client/login")});
+app.get("/api/client/stats",requireClient,(req,res)=>res.json({activeProjects:3,openTickets:2,pendingInvoices:1,nextMeeting:"Mon Mar 9, 2:00 PM"}));
+app.get("/api/client/tickets",requireClient,(req,res)=>res.json({tickets:[{id:"TKT-001",subject:"VPN issue",status:"In Progress",priority:"High",created:"2026-03-01"},{id:"TKT-002",subject:"New user setup",status:"Open",priority:"Normal",created:"2026-03-04"}]}));
+app.post("/api/client/tickets",requireClient,(req,res)=>res.json({ok:true,id:"TKT-"+Date.now()}));
+app.get("/api/client/invoices",requireClient,(req,res)=>res.json({invoices:[{id:"INV-001",amount:2500,date:"2026-03-01",status:"Paid"},{id:"INV-002",amount:1800,date:"2026-03-15",status:"Unpaid"}]}));
+app.get("/api/client/projects",requireClient,(req,res)=>res.json({projects:[{name:"Network Upgrade",status:"In Progress",progress:65,eta:"2026-04-01"},{name:"Security Audit",status:"Planning",progress:10,eta:"2026-05-01"}]}));
+
+// ── Hereya Admin Panel ────────────────────────────────────────────────────────
+app.get("/hereya",(req,res)=>res.sendFile(path.join(__dirname,"views/loci-admin.html")));
+app.get("/hereya/venues",(req,res)=>res.sendFile(path.join(__dirname,"views/loci-venues.html")));
+app.get("/hereya/rooms",(req,res)=>res.sendFile(path.join(__dirname,"views/loci-rooms.html")));
+app.get("/hereya/moderation",(req,res)=>res.sendFile(path.join(__dirname,"views/loci-moderation.html")));
+app.get("/api/hereya/stats",(req,res)=>res.json({venues:142,activeRooms:7,users:1204,messagesToday:3847}));
+app.get("/api/hereya/venues",(req,res)=>res.json({venues:[{id:1,name:"The Rusty Nail",category:"bar",city:"New York",radius:100,active:true,partner:false},{id:2,name:"Madison Square Garden",category:"stadium",city:"New York",radius:200,active:true,partner:true}]}));
+app.post("/api/hereya/venues",(req,res)=>res.json({ok:true}));
+app.get("/api/hereya/rooms/live",(req,res)=>res.json({rooms:[{venue:"The Rusty Nail",status:"active",occupancy:47,started:new Date(Date.now()-3600000).toISOString()},{venue:"MSG",status:"warming",occupancy:12,started:new Date(Date.now()-600000).toISOString()}]}));
+app.get("/api/hereya/moderation",(req,res)=>res.json({flagged:[{id:1,snippet:"Hey check out this link...",venue:"The Rusty Nail",reason:"spam",time:new Date().toISOString()}]}));
+
+// ── Billing: Invoices, Proposals, Booking ─────────────────────────────────────
+app.get("/invoices",(req,res)=>res.sendFile(path.join(__dirname,"views/invoices.html")));
+app.get("/proposals",(req,res)=>res.sendFile(path.join(__dirname,"views/proposals.html")));
+app.get("/booking",(req,res)=>res.sendFile(path.join(__dirname,"views/booking.html")));
+app.get("/api/invoices",(req,res)=>res.json({invoices:[{id:"INV-001",client:"Acme Corp",amount:4500,date:"2026-03-01",due:"2026-03-15",status:"Paid"},{id:"INV-002",client:"TechStart",amount:2200,date:"2026-03-10",due:"2026-03-25",status:"Unpaid"},{id:"INV-003",client:"RetailCo",amount:1800,date:"2026-02-15",due:"2026-03-01",status:"Overdue"}],summary:{revenue:95400,outstanding:4000,overdue:1800,paidMonth:4500}}));
+app.post("/api/invoices",(req,res)=>res.json({ok:true,id:"INV-"+Date.now()}));
+app.get("/api/proposals",(req,res)=>res.json({proposals:[{id:"PROP-001",client:"Acme Corp",title:"Network Modernization",value:18500,sent:"2026-03-01",status:"Viewed"},{id:"PROP-002",client:"StartupXYZ",title:"IT Setup",value:7200,sent:"2026-03-05",status:"Sent"}]}));
+app.post("/api/proposals",(req,res)=>res.json({ok:true}));
+app.get("/api/bookings",(req,res)=>res.json({bookings:[{id:1,client:"Acme Corp",type:"Project Review",date:"2026-03-10T14:00:00",duration:60,notes:"Q1 review"},{id:2,client:"TechStart",type:"Consultation",date:"2026-03-12T10:00:00",duration:30,notes:"Scoping"}]}));
+app.post("/api/bookings",(req,res)=>res.json({ok:true,id:Date.now()}));
+
+// ── Documentation ─────────────────────────────────────────────────────────────
+app.get("/docs",(req,res)=>res.sendFile(path.join(__dirname,"views/docs.html")));
+app.get("/docs/api",(req,res)=>res.sendFile(path.join(__dirname,"views/docs-api.html")));
+app.get("/docs/security",(req,res)=>res.sendFile(path.join(__dirname,"views/docs-security.html")));
+
+// ── Security: Audit Log ───────────────────────────────────────────────────────
+const auditLog=[];
+function logAudit(user,action,ip,result){auditLog.unshift({timestamp:new Date().toISOString(),user:user||"unknown",action,ip,result});if(auditLog.length>1000)auditLog.pop();}
+app.use((req,res,next)=>{if(req.session?.user&&req.method!=="GET"){logAudit(req.session.user,`${req.method} ${req.path}`,req.ip,"success");}next();});
+app.get("/audit-log",(req,res)=>res.sendFile(path.join(__dirname,"views/audit-log.html")));
+app.get("/api/audit-log",(req,res)=>res.json({logs:auditLog.slice(0,100)}));
+
 app.listen(PORT, () => console.log(`✓ NetSudo Admin running on port ${PORT}`));
 
 // ── Resend Email Helper ───────────────────────────────────────────────────────

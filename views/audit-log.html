@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Audit Log — NetSudo Admin</title>
+  <link rel="stylesheet" href="/admin/css/style.css">
+  <style>
+    .audit-filters { display: flex; gap: .75rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: flex-end; }
+    .audit-filters .form-group { margin: 0; }
+    .audit-filters input, .audit-filters select { padding: .45rem .6rem; font-size: .85rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); }
+    .badge-success { background: #22c55e22; color: #22c55e; padding: 2px 8px; border-radius: 4px; font-size: .8rem; }
+    .badge-failed { background: #ef444422; color: #ef4444; padding: 2px 8px; border-radius: 4px; font-size: .8rem; }
+    .auto-refresh-note { font-size: .78rem; color: var(--text-muted); margin-left: auto; }
+  </style>
+</head>
+<body>
+<div class="app-layout" id="app-layout">
+  <div class="sidebar-overlay"></div>
+  <aside id="sidebar"></aside>
+  <div class="main-wrapper">
+    <header id="topbar"></header>
+    <main class="main-content">
+
+      <div class="page-header">
+        <div>
+          <div class="page-heading">Audit Log</div>
+          <div class="page-sub">Track admin actions and security events</div>
+        </div>
+        <button class="btn btn-primary" onclick="exportCSV()">Export CSV</button>
+      </div>
+
+      <div class="card">
+        <div class="audit-filters">
+          <div class="form-group">
+            <label class="form-label">From</label>
+            <input type="date" id="filter-from">
+          </div>
+          <div class="form-group">
+            <label class="form-label">To</label>
+            <input type="date" id="filter-to">
+          </div>
+          <div class="form-group">
+            <label class="form-label">User</label>
+            <input type="text" id="filter-user" placeholder="Filter by user">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Action</label>
+            <select id="filter-action">
+              <option value="">All Actions</option>
+              <option value="POST">POST</option>
+              <option value="PUT">PUT</option>
+              <option value="PATCH">PATCH</option>
+              <option value="DELETE">DELETE</option>
+            </select>
+          </div>
+          <span class="auto-refresh-note" id="refresh-note">Auto-refresh: 30s</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>User</th>
+                <th>Action</th>
+                <th>IP Address</th>
+                <th>Result</th>
+              </tr>
+            </thead>
+            <tbody id="audit-tbody">
+              <tr><td colspan="5"><div class="skeleton skeleton-row"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="/admin/js/components.js"></script>
+<script>
+let allLogs = [];
+
+async function loadLogs() {
+  try {
+    const res = await fetch('/admin/api/audit-log');
+    if (!res.ok) throw new Error('Failed to load');
+    const data = await res.json();
+    allLogs = data.logs || [];
+    renderLogs();
+  } catch (e) {
+    document.getElementById('audit-tbody').innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted)">Failed to load audit logs</td></tr>';
+  }
+}
+
+function renderLogs() {
+  const fromVal = document.getElementById('filter-from').value;
+  const toVal = document.getElementById('filter-to').value;
+  const userVal = document.getElementById('filter-user').value.toLowerCase();
+  const actionVal = document.getElementById('filter-action').value;
+
+  let filtered = allLogs.filter(log => {
+    if (fromVal && log.timestamp < fromVal) return false;
+    if (toVal && log.timestamp > toVal + 'T23:59:59') return false;
+    if (userVal && !log.user.toLowerCase().includes(userVal)) return false;
+    if (actionVal && !log.action.startsWith(actionVal)) return false;
+    return true;
+  });
+
+  const tbody = document.getElementById('audit-tbody');
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted)">No audit entries found</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.map(log => {
+    const ts = new Date(log.timestamp);
+    const fmt = ts.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) + ' ' + ts.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    const badge = log.result === 'success' ? '<span class="badge-success">Success</span>' : '<span class="badge-failed">Failed</span>';
+    return `<tr>
+      <td>${fmt}</td>
+      <td>${esc(log.user)}</td>
+      <td><code>${esc(log.action)}</code></td>
+      <td>${esc(log.ip)}</td>
+      <td>${badge}</td>
+    </tr>`;
+  }).join('');
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+function exportCSV() {
+  const hdr = ['Timestamp','User','Action','IP Address','Result'];
+  const rows = allLogs.map(l => [l.timestamp, l.user, l.action, l.ip, l.result]);
+  const csv = [hdr, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'audit-log-' + new Date().toISOString().split('T')[0] + '.csv';
+  a.click();
+}
+
+// Filter listeners
+['filter-from','filter-to','filter-user','filter-action'].forEach(id => {
+  document.getElementById(id).addEventListener('input', renderLogs);
+});
+
+loadLogs();
+setInterval(loadLogs, 30000);
+</script>
+</body>
+</html>

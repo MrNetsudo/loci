@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Proposals — NetSudo Admin</title>
+  <link rel="stylesheet" href="/admin/css/style.css">
+</head>
+<body>
+<div class="app-layout" id="app-layout">
+  <div class="sidebar-overlay"></div>
+  <aside id="sidebar"></aside>
+  <div class="main-wrapper">
+    <header id="topbar"></header>
+    <main class="main-content">
+
+      <!-- ── Header ── -->
+      <div class="page-header">
+        <div>
+          <h2 class="page-heading">Proposals</h2>
+          <p class="page-sub">Create, track, and convert proposals to invoices</p>
+        </div>
+        <button class="btn btn-primary" onclick="openModal('proposal-modal')">+ New Proposal</button>
+      </div>
+
+      <!-- ── Filter ── -->
+      <div class="filter-bar">
+        <div class="search-wrap">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input class="search-input" id="prop-search" placeholder="Search proposals..." oninput="filterProposals()">
+        </div>
+        <select class="filter-select" id="prop-status-filter" onchange="filterProposals()">
+          <option value="">All Status</option>
+          <option value="Draft">Draft</option>
+          <option value="Sent">Sent</option>
+          <option value="Viewed">Viewed</option>
+          <option value="Accepted">Accepted</option>
+          <option value="Declined">Declined</option>
+        </select>
+      </div>
+
+      <!-- ── Table ── -->
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Prop #</th>
+                <th>Client</th>
+                <th>Title</th>
+                <th>Value</th>
+                <th>Sent</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="proposals-tbody">
+              <tr><td colspan="7"><div class="skeleton skeleton-row"></div></td></tr>
+              <tr><td colspan="7"><div class="skeleton skeleton-row"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ── New Proposal Modal ── -->
+<div class="modal-overlay" id="proposal-modal">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <span class="modal-title">New Proposal</span>
+      <button class="modal-close" data-close-modal>&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="proposal-form" onsubmit="submitProposal(event)">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Client</label>
+            <input class="form-control" name="client" required placeholder="Client name">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Title</label>
+            <input class="form-control" name="title" required placeholder="Proposal title">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Summary</label>
+          <textarea class="form-control" name="summary" rows="2" placeholder="Brief summary of the proposal"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Scope of Work</label>
+          <textarea class="form-control" name="scope" rows="3" placeholder="Detailed scope of deliverables"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Line-Item Pricing</label>
+          <div id="prop-line-items">
+            <div class="line-item" style="display:flex;gap:10px;margin-bottom:8px;align-items:center">
+              <input class="form-control" name="p-item-desc[]" placeholder="Item" style="flex:2" required>
+              <input class="form-control" name="p-item-price[]" type="number" step="0.01" min="0" placeholder="Price" style="flex:1" required>
+              <button type="button" class="btn btn-ghost btn-xs" onclick="removePropLine(this)" title="Remove">&times;</button>
+            </div>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="addPropLine()" style="margin-top:6px">+ Add Item</button>
+          <div style="text-align:right;margin-top:10px;font-size:14px;font-weight:600;color:var(--text-secondary)">
+            Total: <span id="prop-total" style="color:var(--text-primary);font-size:18px">$0.00</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Terms & Conditions</label>
+          <textarea class="form-control" name="terms" rows="2" placeholder="Payment terms, timeline, etc."></textarea>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-close-modal>Cancel</button>
+      <button class="btn btn-primary" onclick="document.getElementById('proposal-form').requestSubmit()">Create Proposal</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script src="/admin/js/app.js"></script>
+<script>
+(async function(){
+  await initLayout({ page:'proposals', title:'Proposals' });
+
+  let allProposals = [];
+
+  const PROP_STATUS_COLOR = {
+    Draft:'#6b7280', Sent:'#3b82f6', Viewed:'#f59e0b', Accepted:'#10b981', Declined:'#ef4444'
+  };
+
+  function propBadge(status){
+    const c = PROP_STATUS_COLOR[status]||'#6b7280';
+    return '<span class="badge" style="background:'+c+'18;color:'+c+';border:1px solid '+c+'30">'+escHtml(status)+'</span>';
+  }
+
+  async function loadProposals(){
+    try {
+      const data = await API.get('/admin/api/proposals');
+      allProposals = data.proposals || [];
+      renderProposals(allProposals);
+    } catch(e){ Toast.error('Failed to load proposals'); }
+  }
+
+  window.renderProposals = function(list){
+    const tbody = document.getElementById('proposals-tbody');
+    if(!list.length){
+      tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📝</div><div class="empty-text">No proposals found</div></div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = list.map(p => `
+      <tr>
+        <td class="td-mono">${escHtml(p.id)}</td>
+        <td>${escHtml(p.client)}</td>
+        <td>${escHtml(p.title)}</td>
+        <td style="font-weight:600">$${Number(p.value).toLocaleString()}</td>
+        <td class="td-muted">${fmtDate(p.sent)}</td>
+        <td>${propBadge(p.status)}</td>
+        <td>
+          <div style="display:flex;gap:4px">
+            <button class="btn btn-ghost btn-xs" title="View">👁</button>
+            ${p.status==='Accepted' ? '<button class="btn btn-success btn-xs" onclick="convertToInvoice(\''+escHtml(p.id)+'\',\''+escHtml(p.client)+'\','+p.value+')" title="Convert to Invoice">💰 Invoice</button>' : ''}
+          </div>
+        </td>
+      </tr>`).join('');
+  };
+
+  window.filterProposals = function(){
+    const q = document.getElementById('prop-search').value.toLowerCase();
+    const st = document.getElementById('prop-status-filter').value;
+    let filtered = allProposals;
+    if(st) filtered = filtered.filter(p=>p.status===st);
+    if(q) filtered = filtered.filter(p=>p.id.toLowerCase().includes(q)||p.client.toLowerCase().includes(q)||p.title.toLowerCase().includes(q));
+    renderProposals(filtered);
+  };
+
+  window.convertToInvoice = async function(propId, client, value){
+    showConfirm({
+      title: 'Convert to Invoice',
+      text: 'Create an invoice for '+client+' ($'+Number(value).toLocaleString()+') from proposal '+propId+'?',
+      confirmText: 'Create Invoice',
+      onConfirm: async ()=>{
+        try {
+          const due = new Date();
+          due.setDate(due.getDate()+15);
+          const res = await API.post('/admin/api/invoices',{
+            client, total: value,
+            due: due.toISOString().split('T')[0],
+            items:[{ description:'From proposal '+propId, qty:1, price:value, total:value }]
+          });
+          Toast.success('Invoice '+res.id+' created from '+propId);
+        } catch(e){ Toast.error(e.message); }
+      }
+    });
+  };
+
+  // Proposal line items
+  function calcPropTotal(){
+    let total = 0;
+    document.querySelectorAll('#prop-line-items [name="p-item-price[]"]').forEach(i=>{
+      total += parseFloat(i.value)||0;
+    });
+    document.getElementById('prop-total').textContent = '$'+total.toFixed(2);
+  }
+
+  window.addPropLine = function(){
+    const container = document.getElementById('prop-line-items');
+    const div = document.createElement('div');
+    div.className = 'line-item';
+    div.style.cssText = 'display:flex;gap:10px;margin-bottom:8px;align-items:center';
+    div.innerHTML = `
+      <input class="form-control" name="p-item-desc[]" placeholder="Item" style="flex:2" required>
+      <input class="form-control" name="p-item-price[]" type="number" step="0.01" min="0" placeholder="Price" style="flex:1" required>
+      <button type="button" class="btn btn-ghost btn-xs" onclick="removePropLine(this)" title="Remove">&times;</button>`;
+    container.appendChild(div);
+    div.querySelector('[name="p-item-price[]"]').addEventListener('input',calcPropTotal);
+  };
+
+  window.removePropLine = function(btn){
+    const items = document.querySelectorAll('#prop-line-items .line-item');
+    if(items.length<=1){ Toast.warn('Need at least one line item'); return; }
+    btn.closest('.line-item').remove();
+    calcPropTotal();
+  };
+
+  document.querySelectorAll('#prop-line-items [name="p-item-price[]"]').forEach(i=>i.addEventListener('input',calcPropTotal));
+
+  window.submitProposal = async function(e){
+    e.preventDefault();
+    const form = e.target;
+    const descs = form.querySelectorAll('[name="p-item-desc[]"]');
+    const prices = form.querySelectorAll('[name="p-item-price[]"]');
+    const items = [];
+    let total = 0;
+    descs.forEach((d,i)=>{
+      const price = parseFloat(prices[i].value)||0;
+      items.push({ description:d.value, price });
+      total += price;
+    });
+    const payload = {
+      client: form.querySelector('[name="client"]').value,
+      title: form.querySelector('[name="title"]').value,
+      summary: form.querySelector('[name="summary"]').value,
+      scope: form.querySelector('[name="scope"]').value,
+      terms: form.querySelector('[name="terms"]').value,
+      items, value: total
+    };
+    try {
+      await API.post('/admin/api/proposals', payload);
+      Toast.success('Proposal created');
+      closeModal('proposal-modal');
+      form.reset();
+      document.getElementById('prop-total').textContent = '$0.00';
+      loadProposals();
+    } catch(e){ Toast.error(e.message); }
+  };
+
+  initModal('proposal-modal');
+  loadProposals();
+})();
+</script>
+</body>
+</html>

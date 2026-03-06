@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Reference &mdash; NetSudo Documentation</title>
+  <link rel="stylesheet" href="/docs/docs.css">
+</head>
+<body>
+  <div class="sidebar-overlay"></div>
+  <header class="docs-header">
+    <div class="docs-header-inner">
+      <button class="sidebar-toggle" onclick="toggleSidebar()">&#9776;</button>
+      <a href="/docs" class="docs-logo">NetSudo Documentation</a>
+      <span class="version-badge">v2.0</span>
+      <div class="search-wrap">
+        <input type="text" id="search" placeholder="Search docs...">
+        <div id="search-results" class="search-results"></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="docs-layout">
+    <aside class="docs-sidebar" id="sidebar">
+      <nav>
+        <div class="nav-section">Docs</div>
+        <a href="/docs">&#127968; Overview</a>
+        <a href="/docs/api" class="active">&#128268; API Reference</a>
+        <a href="/docs/security">&#128274; Security</a>
+
+        <div class="nav-section">API Sections</div>
+        <a href="#admin-api">&#128295; Admin API</a>
+        <a href="#client-portal-api">&#128100; Client Portal API</a>
+        <a href="#loci-api">&#128241; Loci API</a>
+
+        <div class="nav-section">Deep Dives</div>
+        <a href="/docs/api.html">&#128268; Full Admin API</a>
+        <a href="/docs/loci-api.html">&#128241; Full Loci API</a>
+      </nav>
+    </aside>
+
+    <main class="docs-content">
+      <h1>API Reference</h1>
+      <p class="subtitle">Complete endpoint reference for the NetSudo Admin API, Client Portal API, and Loci API. All examples use curl.</p>
+
+      <div class="alert alert-info">
+        <strong>Authentication</strong>
+        The NetSudo API uses <strong>session-based authentication</strong>. Log in via <code>POST /admin/login</code> to receive a <code>connect.sid</code> session cookie. Include this cookie in all subsequent requests. There are no API keys or bearer tokens.
+      </div>
+
+      <table>
+        <tbody>
+          <tr><td><strong>Base URL</strong></td><td><code>https://netsudo.com</code></td></tr>
+          <tr><td><strong>Auth</strong></td><td>Session cookie (<code>connect.sid</code>)</td></tr>
+          <tr><td><strong>Content-Type</strong></td><td><code>application/json</code> (except login: <code>application/x-www-form-urlencoded</code>)</td></tr>
+          <tr><td><strong>Rate Limit</strong></td><td>Login: 10 requests / 15 min per IP</td></tr>
+        </tbody>
+      </table>
+
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!--  ADMIN API                                                      -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <h2 id="admin-api">Admin API</h2>
+      <p>Core API for the NetSudo admin panel. All <code>/admin/api/*</code> endpoints require session auth unless noted.</p>
+
+      <!-- ── Authentication ──────────────────────────────────────────── -->
+      <h3 id="auth-endpoints">Authentication</h3>
+
+      <table>
+        <thead>
+          <tr><th>Method</th><th>Path</th><th>Description</th><th>Auth</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="method method-post">POST</span></td><td><code>/admin/login</code></td><td>Authenticate with username/password</td><td>Public (rate limited)</td></tr>
+          <tr><td><span class="method method-post">POST</span></td><td><code>/admin/2fa</code></td><td>Submit TOTP code after login</td><td>Pending session</td></tr>
+          <tr><td><span class="method method-get">GET</span></td><td><code>/admin/logout</code></td><td>Destroy session and redirect to login</td><td>Session</td></tr>
+          <tr><td><span class="method method-get">GET</span></td><td><code>/admin/api/me</code></td><td>Get current authenticated user</td><td>Session</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Login Example</h4>
+      <div class="code-block-header">
+        <span>bash</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+<pre><code># Login and save session cookie
+curl -X POST https://netsudo.com/admin/login \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=admin&amp;password=yourpassword" \
+  -c cookies.txt \
+  -L
+
+# If 2FA is enabled, submit the TOTP code
+curl -X POST https://netsudo.com/admin/2fa \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "token=123456" \
+  -b cookies.txt \
+  -c cookies.txt \
+  -L
+
+# Check current session
+curl https://netsudo.com/admin/api/me \
+  -b cookies.txt</code></pre>
+
+      <!-- ── Contacts ────────────────────────────────────────────────── -->
+      <h3 id="contacts-endpoints">Contacts</h3>
+
+      <table>
+        <thead>
+          <tr><th>Method</th><th>Path</th><th>Description</th><th>Auth</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="method method-get">GET</span></td><td><code>/admin/api/contacts</code></td><td>List contacts (with filters: stage, tag, search)</td><td>Session</td></tr>
+          <tr><td><span class="method method-post">POST</span></td><td><code>/admin/api/contacts</code></td><td>Create a new contact</td><td>Public (website forms) or Session</td></tr>
+          <tr><td><span class="method method-get">GET</span></td><td><code>/admin/api/contacts/:id</code></td><td>Get contact details + activity log</td><td>Session</td></tr>
+          <tr><td><span class="method method-put">PUT</span></td><td><code>/admin/api/contacts/:id</code></td><td>Update contact fields</td><td>Session</td></tr>
+          <tr><td><span class="method method-delete">DELETE</span></td><td><code>/admin/api/contacts/:id</code></td><td>Delete a contact</td><td>Session</td></tr>
+          <tr><td><span class="method method-patch">PATCH</span></td><td><code>/admin/api/contacts/:id/stage</code></td><td>Update contact stage (Kanban drag)</td><td>Session</td></tr>
+          <tr><td><span class="method method-post">POST</span></td><td><code>/admin/api/contacts/:id/note</code></td><td>Add a note to contact activity</td><td>Session</td></tr>
+          <tr><td><span class="method method-post">POST</span></td><td><code>/admin/api/contacts/:id/email</code></td><td>Log an email action</td><td>Session</td></tr>
+          <tr><td><span class="method method-get">GET</span></td><td><code>/admin/api/contacts/export/csv</code></td><td>Download all contacts as CSV</td><td>Session</td></tr>
+        </tbody>
+      </table>
+
+      <h4>List Contacts</h4>
+      <div class="code-block-header">
+        <span>bash</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+<pre><code># List all contacts
+curl https://netsudo.com/admin/api/contacts \
+  -b cookies.txt
+
+# Filter by stage and search
+curl "https://netsudo.com/admin/api/contacts?stage=New&amp;search=acme" \
+  -b cookies.txt
+
+# Paginate results
+curl "https://netsudo.com/admin/api/contacts?limit=20&amp;offset=40" \
+  -b cookies.txt</code></pre>
+
+      <h4>Create Contact</h4>
+      <div class="code-block-header">
+        <span>bash</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+<pre><code># Create a new contact (authenticated)
+curl -X POST https://netsudo.com/admin/api/contacts \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{
+    "name": "Jane Smith",
+    "email": "jane@example.com",
+    "company": "Acme Corp",
+    "phone": "+1-555-0100",
+    "stage": "New",
+    "tag": "lead",
+    "notes": "Referred by existing client"
+  }'
+
+# Website form submission (public, no auth)
+curl -X POST https://netsudo.com/admin/api/contacts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Web Visitor",
+    "email": "visitor@example.com",
+    "message": "Interested in your services",
+    "source": "website"
+  }'</code></pre>
+
+      <h4>Update Contact &amp; Stage</h4>
+      <div class="code-block-header">
+        <span>bash</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+<pre><code># Update contact details
+curl -X PUT https://netsudo.com/admin/api/contacts/42 \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{
+    "name": "Jane Smith",
+    "email": "jane@acme.com",
+    "company": "Acme Corp",
+    "phone": "+1-555-0100",
+    "stage": "In Conversation",
+    "tag": "prospect",
+    "notes": "Had great intro call"
+  }'
+
+# Quick stage update (used by Kanban drag-and-drop)
+curl -X PATCH https://netsudo.com/admin/api/contacts/42/stage \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{"stage": "Closed Won"}'
+
+# Add a note
+curl -X POST https://netsudo.com/admin/api/contacts/42/note \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{"note": "Follow up scheduled for next Tuesday"}'
+
+# Export all contacts as CSV
+curl https://netsudo.com/admin/api/contacts/export/csv \
+  -b cookies.txt \
+  -o contacts.csv</code></pre>
+
+      <!-- ── Revenue ─────────────────────────────────────────────────── -->
+      <h3 id="revenue-endpoints">Revenue</h3>
+
+      <table>
+        <thead>
+          <tr><th>Method</th><th>Path</th><th>Description</th><th>Auth</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="method method-get">GET</span></td><td><code>/admin/api/revenue</code></td><td>List revenue entries (last 100)</td><td>Session</td></tr>
+          <tr><td><span class="method method-post">POST</span></td><td><code>/admin/api/revenue</code></td><td>Create revenue entry</td><td>Session</td></tr>
+          <tr><td><span class="method method-put">PUT</span></td><td><code>/admin/api/revenue/:id</code></td><td>Update revenue entry</td><td>Session</td></tr>
+          <tr><td><span class="method method-delete">DELETE</span></td><td><code>/admin/api/revenue/:id</code></td><td>Delete revenue entry</td><td>Session</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Revenue Examples</h4>
+      <div class="code-block-header">
+        <span>bash</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+<pre><code># List recent revenue
+curl https://netsudo.com/admin/api/revenue \
+  -b cookies.txt
+
+# Create a recurring revenue entry
+curl -X POST https://netsudo.com/admin/api/revenue \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{
+    "amount": 2500,
+    "type": "recurring",
+    "description": "Monthly hosting &amp; maintenance",
+    "date": "2026-03-01",
+    "contact_id": 42,
+    "project_id": 7,
+    "status": "paid"
+  }'
+
+# Create a one-time payment
+curl -X POST https://netsudo.com/admin/api/revenue \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{
+    "amount": 15000,
+    "type": "one-time",
+    "description": "Website redesign project",
+    "status": "pending"
+  }'</code></pre>
+
+      <!-- ── Projects ────────────────────────────────────────────────── -->
+      <h3 id="projects-endpoints">Projects</h3>
+
+      <table>
+        <thead>
+          <tr><th>Method</th><th>Path</th><th>Description</th><th>Auth</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="method method-get">GET</span></td><td><code>/admin/api/projects</code></td><td>List all projects with contact info</td><td>Session</td></tr>
+          <tr><td><span class="method method-post">POST</span></td><td><code>/admin/api/projects</code></td><td>Create a new project</td><td>Session</td></tr>
+          <tr><td><span class="method method-put">PUT</span></td><td><code>/admin/api/projects/:id</code></td><td>Update project details</td><td>Session</td></tr>
+          <tr><td><span class="method method-delete">DELETE</span></td><td><code>/admin/api/projects/:id</code></td><td>Delete a project</td><td>Session</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Project Examples</h4>
+      <div class="code-block-header">
+        <span>bash</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+<pre><code># List all projects
+curl https://netsudo.com/admin/api/projects \
+  -b cookies.txt
+
+# Create a new project
+curl -X POST https://netsudo.com/admin/api/projects \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{
+    "name": "Acme Corp Website Redesign",
+    "contact_id": 42,
+    "status": "active",
+    "value": 15000,
+    "monthly_value": 500,
+    "start_date": "2026-03-01",
+    "deadline": "2026-05-15",
+    "notes": "Full redesign with CMS integration"
+  }'</code></pre>
+
+      <!-- ── Users ───────────────────────────────────────────────────── -->
+      <h3 id="users-endpoints">Users</h3>
+      <div class="alert alert-warn">
+        <strong>Superadmin Only</strong>
+        All user management endpoints require the <code>superadmin</code> role. Regular admins will receive a <code>403 Forbidden</code> response.
+      </div>
+
+      <table>
+        <thead>
+          <tr><th>Method</th><th>Path</th><th>Description</th><th>Auth</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="method method-get">GET</span></td><td><code>/admin/api/users</code></td><td>List all admin users</td><td>Superadmin</td></tr>
+          <tr><td><span class="method method-post">POST</span></td><td><code>/admin/api/users</code></td><td>Create a new admin user</td><td>Superadmin</td></tr>
+          <tr><td><span class="method method-put">PUT</span></td><td><code>/admin/api/users/:id</code></td><td>Update user (username, role, password)</td><td>Superadmin</td></tr>
+          <tr><td><span class="method method-delete">DELETE</span></td><td><code>/admin/api/users/:id</code></td><td>Delete an admin user</td><td>Superadmin</td></tr>
+        </tbody>
+      </table>
+
+      <h4>User Management Examples</h4>
+      <div class="code-block-header">
+        <span>bash</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+<pre><code># List all admin users
+curl https://netsudo.com/admin/api/users \
+  -b cookies.txt
+
+# Create a new admin user
+curl -X POST https://netsudo.com/admin/api/users \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{
+    "username": "sarah",
+    "password": "SecurePass123!",
+    "role": "admin"
+  }'
+
+# Update user role to superadmin
+curl -X PUT https://netsudo.com/admin/api/users/5 \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{
+    "username": "sarah",
+    "role": "superadmin"
+  }'
+
+# Delete a user (cannot delete yourself)
+curl -X DELETE https://netsudo.com/admin/api/users/5 \
+  -b cookies.txt</code></pre>
+
+      <!-- ── Settings & 2FA ──────────────────────────────────────────── -->
+      <h3 id="settings-endpoints">Settings &amp; 2FA</h3>
+
+      <table>
+        <thead>
+          <tr><th>Method</th><th>Path</th><th>Description</th><th>Auth</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="method method-post">POST</span></td><td><code>/admin/api/settings/password</code></td><td>Change current user's password</td><td>Session</td></tr>
+          <tr><td><span class="method method-get">GET</span></td><td><code>/admin/settings/2fa</code></td><td>Get 2FA status (+ QR code if not enabled)</td><td>Session</td></tr>
+          <tr><td><span class="method method-post">POST</span></td><td><code>/admin/settings/2fa/enable</code></td><td>Enable 2FA with TOTP verification</td><td>Session</td></tr>
+          <tr><td><span class="method method-post">POST</span></td><td><code>/admin/settings/2fa/disable</code></td><td>Disable 2FA (requires password)</td><td>Session</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Settings Examples</h4>
+      <div class="code-block-header">
+        <span>bash</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+<pre><code># Change password
+curl -X POST https://netsudo.com/admin/api/settings/password \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{
+    "currentPassword": "OldPass123",
+    "newPassword": "NewSecurePass456!"
+  }'
+
+# Check 2FA status (returns QR code if not yet enabled)
+curl https://netsudo.com/admin/settings/2fa \
+  -b cookies.txt
+
+# Enable 2FA after scanning QR code
+curl -X POST https://netsudo.com/admin/settings/2fa/enable \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{"token": "123456"}'
+
+# Disable 2FA (requires current password)
+curl -X POST https://netsudo.com/admin/settings/2fa/disable \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{"password": "YourCurrentPassword"}'</code></pre>
+
+      <!-- ── Stats & Activity ────────────────────────────────────────── -->
+      <h3 id="stats-endpoints">Dashboard &amp; Activity</h3>
+
+      <table>
+        <thead>
+          <tr><th>Method</th><th>Path</th><th>Description</th><th>Auth</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="method method-get">GET</span></td><td><code>/admin/api/stats</code></td><td>Dashboard stats (totals, pipeline, recent)</td><td>Session</td></tr>
+          <tr><td><span class="method method-get">GET</span></td><td><code>/admin/api/activity</code></td><td>Recent activity feed (last 50)</td><td>Session</td></tr>
+          <tr><td><span class="method method-get">GET</span></td><td><code>/admin/api/ceo/stats</code></td><td>CEO dashboard data (revenue, MRR, pipeline)</td><td>Session</td></tr>
+          <tr><td><span class="method method-get">GET</span></td><td><code>/admin/api/login-attempts</code></td><td>Login audit log (last 100)</td><td>Superadmin</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Stats Examples</h4>
+      <div class="code-block-header">
+        <span>bash</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+<pre><code># Dashboard stats
+curl https://netsudo.com/admin/api/stats \
+  -b cookies.txt
+# Response: { total, thisWeek, thisMonth, closedWon, byStage, recent }
+
+# Activity feed
+curl https://netsudo.com/admin/api/activity \
+  -b cookies.txt
+# Response: [{ id, contact_id, admin_user, action, detail, created_at, contact_name }]
+
+# CEO stats
+curl https://netsudo.com/admin/api/ceo/stats \
+  -b cookies.txt
+# Response: { monthRevenue, mrr, goalProgress, pipeline, dailyRevenue, activeClients }
+
+# Login audit log (superadmin only)
+curl https://netsudo.com/admin/api/login-attempts \
+  -b cookies.txt
+# Response: [{ id, username, ip, success, user_agent, created_at }]</code></pre>
+
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!--  CLIENT PORTAL API                                              -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <h2 id="client-portal-api">Client Portal API</h2>
+      <p>The client portal exposes endpoints for authenticated clients to interact with their projects, invoices, and messages.</p>
+
+      <h3 id="portal-auth">Portal Authentication</h3>
+      <table>
+        <thead>
+          <tr><th>Method</th><th>Path</th><th>Description</th><th>Auth</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="method method-post">POST</span></td><td><code>/portal/login</code></td><td>Client login with email/password</td><td>Public</td></tr>
+          <tr><td><span class="method method-get">GET</span></td><td><code>/portal/logout</code></td><td>Destroy client session</td><td>Client session</td></tr>
+        </tbody>
+      </table>
+
+      <h3 id="portal-endpoints">Portal Data Endpoints</h3>
+      <table>
+        <thead>
+          <tr><th>Method</th><th>Path</th><th>Description</th><th>Auth</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="method method-get">GET</span></td><td><code>/portal/api/projects</code></td><td>List client's projects</td><td>Client session</td></tr>
+          <tr><td><span class="method method-get">GET</span></td><td><code>/portal/api/projects/:id</code></td><td>Get project details</td><td>Client session</td></tr>
+          <tr><td><span class="method method-get">GET</span></td><td><code>/portal/api/invoices</code></td><td>List client's invoices</td><td>Client session</td></tr>
+          <tr><td><span class="method method-get">GET</span></td><td><code>/portal/api/invoices/:id</code></td><td>Get invoice with line items</td><td>Client session</td></tr>
+          <tr><td><span class="method method-get">GET</span></td><td><code>/portal/api/messages</code></td><td>List messages for client</td><td>Client session</td></tr>
+          <tr><td><span class="method method-post">POST</span></td><td><code>/portal/api/messages</code></td><td>Send a message to the team</td><td>Client session</td></tr>
+          <tr><td><span class="method method-get">GET</span></td><td><code>/portal/api/files</code></td><td>List shared files</td><td>Client session</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Portal Example</h4>
+      <div class="code-block-header">
+        <span>bash</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+<pre><code># Client login
+curl -X POST https://netsudo.com/portal/login \
+  -H "Content-Type: application/json" \
+  -c portal-cookies.txt \
+  -d '{"email": "client@example.com", "password": "clientpass"}'
+
+# View client's projects
+curl https://netsudo.com/portal/api/projects \
+  -b portal-cookies.txt
+
+# View client's invoices
+curl https://netsudo.com/portal/api/invoices \
+  -b portal-cookies.txt
+
+# Send a message
+curl -X POST https://netsudo.com/portal/api/messages \
+  -H "Content-Type: application/json" \
+  -b portal-cookies.txt \
+  -d '{"message": "When can I expect the next deliverable?"}'</code></pre>
+
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!--  LOCI API                                                       -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <h2 id="loci-api">Loci API</h2>
+      <p>The Loci API handles venue-based real-time chat. It uses Supabase for auth, realtime channels, and data storage. The beta signup endpoint integrates with the NetSudo CRM.</p>
+
+      <h3 id="loci-auth">Loci Authentication</h3>
+      <table>
+        <thead>
+          <tr><th>Method</th><th>Path</th><th>Description</th><th>Auth</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="method method-post">POST</span></td><td><code>/auth/signup</code></td><td>Register with email (sends OTP)</td><td>Public</td></tr>
+          <tr><td><span class="method method-post">POST</span></td><td><code>/auth/verify</code></td><td>Verify email OTP</td><td>Public</td></tr>
+          <tr><td><span class="method method-post">POST</span></td><td><code>/auth/anonymous</code></td><td>Register anonymously</td><td>Public</td></tr>
+        </tbody>
+      </table>
+
+      <h3 id="loci-data">Loci Data Endpoints</h3>
+      <table>
+        <thead>
+          <tr><th>Method</th><th>Path</th><th>Description</th><th>Auth</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="method method-get">GET</span></td><td><code>/api/venues/nearby</code></td><td>Find venues near coordinates</td><td>Supabase token</td></tr>
+          <tr><td><span class="method method-get">GET</span></td><td><code>/api/rooms/:venue_id</code></td><td>Get rooms for a venue</td><td>Supabase token</td></tr>
+          <tr><td><span class="method method-get">GET</span></td><td><code>/api/messages/:room_id</code></td><td>Get messages in a room</td><td>Supabase token</td></tr>
+          <tr><td><span class="method method-post">POST</span></td><td><code>/api/messages</code></td><td>Send a message to a room</td><td>Supabase token</td></tr>
+          <tr><td><span class="method method-ws">WS</span></td><td><code>realtime/room:{room_id}</code></td><td>Subscribe to room messages</td><td>Supabase token</td></tr>
+        </tbody>
+      </table>
+
+      <h3 id="loci-integration">NetSudo Integration</h3>
+      <table>
+        <thead>
+          <tr><th>Method</th><th>Path</th><th>Description</th><th>Auth</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="method method-post">POST</span></td><td><code>/admin/loci/signup</code></td><td>Loci beta signup (creates CRM contact)</td><td>Public</td></tr>
+          <tr><td><span class="method method-post">POST</span></td><td><code>/admin/loci/qr</code></td><td>Update Loci QR code URL</td><td>Secret key</td></tr>
+          <tr><td><span class="method method-get">GET</span></td><td><code>/admin/loci/qr</code></td><td>Get current Loci QR code URL</td><td>Public</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Loci Integration Examples</h4>
+      <div class="code-block-header">
+        <span>bash</span>
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+      </div>
+<pre><code># Submit a Loci beta signup (goes into NetSudo CRM)
+curl -X POST https://netsudo.com/admin/loci/signup \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Alex Johnson",
+    "email": "alex@example.com"
+  }'
+
+# Update Loci QR URL (requires secret)
+curl -X POST https://netsudo.com/admin/loci/qr \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://loci.netsudo.com/download",
+    "secret": "LociQR2026!"
+  }'
+
+# Get current QR URL
+curl https://netsudo.com/admin/loci/qr</code></pre>
+
+      <!-- ── Error Responses ─────────────────────────────────────────── -->
+      <h2 id="error-responses">Error Responses</h2>
+      <p>All API errors return JSON with an <code>error</code> field:</p>
+
+      <table>
+        <thead>
+          <tr><th>Status</th><th>Meaning</th><th>Example</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>400</code></td><td>Bad request / validation error</td><td><code>{"error": "Email already exists"}</code></td></tr>
+          <tr><td><code>401</code></td><td>Not authenticated</td><td><code>{"error": "Unauthorized"}</code></td></tr>
+          <tr><td><code>403</code></td><td>Insufficient permissions</td><td><code>{"error": "Forbidden"}</code></td></tr>
+          <tr><td><code>404</code></td><td>Resource not found</td><td><code>{"error": "Not found"}</code></td></tr>
+          <tr><td><code>429</code></td><td>Rate limited</td><td><code>{"error": "Too many login attempts..."}</code></td></tr>
+          <tr><td><code>500</code></td><td>Server error</td><td><code>{"error": "Internal server error message"}</code></td></tr>
+        </tbody>
+      </table>
+
+      <!-- ── Footer ──────────────────────────────────────────────────── -->
+      <div class="docs-footer">
+        <span><a href="/docs">&larr; Back to Documentation</a></span>
+        <span><a href="/admin/dashboard">Admin Panel</a></span>
+      </div>
+    </main>
+
+    <aside class="docs-toc" id="toc"></aside>
+  </div>
+
+  <script src="/docs/docs.js"></script>
+  <script>
+  function copyCode(btn) {
+    var pre = btn.closest('.code-block-header').nextElementSibling;
+    var code = pre.querySelector('code') || pre;
+    navigator.clipboard.writeText(code.textContent).then(function() {
+      btn.textContent = 'Copied!';
+      setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+    });
+  }
+  </script>
+</body>
+</html>

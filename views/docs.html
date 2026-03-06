@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NetSudo Documentation</title>
+  <link rel="stylesheet" href="/docs/docs.css">
+</head>
+<body>
+  <div class="sidebar-overlay"></div>
+  <header class="docs-header">
+    <div class="docs-header-inner">
+      <button class="sidebar-toggle" onclick="toggleSidebar()">&#9776;</button>
+      <a href="/docs" class="docs-logo">NetSudo Documentation</a>
+      <span class="version-badge">v2.0</span>
+      <div class="search-wrap">
+        <input type="text" id="search" placeholder="Search docs...">
+        <div id="search-results" class="search-results"></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="docs-layout">
+    <!-- ── Left Sidebar TOC ────────────────────────────────────────────── -->
+    <aside class="docs-sidebar" id="sidebar">
+      <nav>
+        <div class="nav-section">Getting Started</div>
+        <a href="#overview" class="active">&#127968; Overview</a>
+        <a href="#architecture">&#128736; Architecture</a>
+        <a href="#quick-start">&#9889; Quick Start</a>
+
+        <div class="nav-section">Features</div>
+        <a href="#client-portal">&#128100; Client Portal</a>
+        <a href="#loci-platform">&#128241; Loci Platform</a>
+        <a href="#billing-invoicing">&#129534; Billing &amp; Invoicing</a>
+
+        <div class="nav-section">Operations</div>
+        <a href="/docs/security">&#128274; Security</a>
+        <a href="/docs/api">&#128268; API Reference</a>
+
+        <div class="nav-section">Deep Dives</div>
+        <a href="/docs/api.html">&#128268; Full Admin API</a>
+        <a href="/docs/loci-api.html">&#128241; Loci API</a>
+        <a href="/docs/client-portal.html">&#128100; Portal Guide</a>
+        <a href="/docs/invoicing.html">&#129534; Invoicing Guide</a>
+        <a href="/docs/proposals.html">&#128203; Proposals Guide</a>
+        <a href="/docs/booking.html">&#128197; Booking Guide</a>
+        <a href="/docs/security.html">&#128274; Security Deep Dive</a>
+        <a href="/docs/deployment.html">&#128640; Deployment</a>
+      </nav>
+    </aside>
+
+    <!-- ── Main Content ────────────────────────────────────────────────── -->
+    <main class="docs-content">
+      <h1>NetSudo Documentation</h1>
+      <p class="subtitle">Complete internal reference for the NetSudo agency platform. Covers the CRM, client portal, Loci chat app, billing, security, and API.</p>
+
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!--  GETTING STARTED                                               -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <h2 id="overview">Overview</h2>
+      <p><strong>NetSudo</strong> is a full-stack agency management platform built for digital agencies. It provides a CRM with pipeline management, a client-facing portal, invoicing, proposals, booking, and real-time Telegram notifications &mdash; all running on a single Express.js server backed by PostgreSQL.</p>
+
+      <p><strong>Loci</strong> is a venue-based real-time chat application built on Supabase. Users discover nearby venues and join chat rooms. Loci runs alongside NetSudo on the same infrastructure.</p>
+
+      <div class="card-grid">
+        <div class="doc-card">
+          <div class="card-icon">&#128202;</div>
+          <div class="card-title">CRM &amp; Pipeline</div>
+          <div class="card-desc">Manage contacts through sales stages. Kanban board, activity logs, notes, and email tracking.</div>
+        </div>
+        <div class="doc-card">
+          <div class="card-icon">&#128100;</div>
+          <div class="card-title">Client Portal</div>
+          <div class="card-desc">Clients view projects, send messages, download files, and pay invoices through their own portal.</div>
+        </div>
+        <div class="doc-card">
+          <div class="card-icon">&#128176;</div>
+          <div class="card-title">Billing &amp; Invoicing</div>
+          <div class="card-desc">Create invoices, track revenue (one-time &amp; recurring), manage projects with Stripe integration.</div>
+        </div>
+        <div class="doc-card">
+          <div class="card-icon">&#128241;</div>
+          <div class="card-title">Loci Chat</div>
+          <div class="card-desc">Venue-based real-time messaging with Supabase channels, geolocation, and anonymous access.</div>
+        </div>
+        <div class="doc-card">
+          <div class="card-icon">&#128274;</div>
+          <div class="card-title">Security</div>
+          <div class="card-desc">2FA via TOTP, bcrypt passwords, session management, rate limiting, Helmet CSP, and audit logs.</div>
+        </div>
+        <div class="doc-card">
+          <div class="card-icon">&#128268;</div>
+          <div class="card-title">API</div>
+          <div class="card-desc">Full REST API for contacts, revenue, projects, users, and settings with session auth.</div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!--  ARCHITECTURE                                                   -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <h2 id="architecture">Architecture</h2>
+      <p>NetSudo runs as a Docker Compose stack behind Nginx with SSL termination. The main Express server handles both HTML views and API endpoints. Loci uses Supabase for real-time channels.</p>
+
+      <div class="arch-diagram">
+<pre>
+&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+&#9474;                     Browser / Mobile Clients                   &#9474;
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+                             &#9474;
+                     Nginx (:443 SSL)
+                             &#9474;
+              &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9524;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+              &#9474;                           &#9474;
+   NetSudo Express (:3000)      Loci (Supabase)
+              &#9474;                           &#9474;
+              &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9516;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+                             &#9474;
+                    PostgreSQL Database
+                             &#9474;
+         &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9524;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+         &#9474;              &#9474;              &#9474;
+      Resend       Telegram Bot      Stripe
+      (Email)     (Notifications)   (Payments)
+</pre>
+      </div>
+
+      <h3 id="tech-stack">Tech Stack</h3>
+      <table class="stack-table">
+        <thead>
+          <tr><th>Component</th><th>Technology</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Server</td><td>Node.js / Express.js</td></tr>
+          <tr><td>Database</td><td>PostgreSQL</td></tr>
+          <tr><td>Auth</td><td>bcrypt + TOTP 2FA (speakeasy)</td></tr>
+          <tr><td>Sessions</td><td>express-session (server-side)</td></tr>
+          <tr><td>Email</td><td>Resend API</td></tr>
+          <tr><td>Notifications</td><td>Telegram Bot API</td></tr>
+          <tr><td>Payments</td><td>Stripe</td></tr>
+          <tr><td>Realtime</td><td>Supabase Channels (WebSocket)</td></tr>
+          <tr><td>Security</td><td>Helmet, express-rate-limit, CSP</td></tr>
+          <tr><td>Container</td><td>Docker / Docker Compose</td></tr>
+          <tr><td>Proxy</td><td>Nginx + Let's Encrypt SSL</td></tr>
+          <tr><td>Frontend</td><td>Vanilla JS, Inter font, CSS custom properties</td></tr>
+        </tbody>
+      </table>
+
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!--  QUICK START                                                    -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <h2 id="quick-start">Quick Start</h2>
+      <p>Getting up and running with NetSudo for development or staff access.</p>
+
+      <h3 id="logging-in">Logging In</h3>
+      <ol class="steps">
+        <li>
+          <strong>Navigate to the admin panel</strong><br>
+          Go to <code>https://netsudo.com/admin/login</code> in your browser.
+        </li>
+        <li>
+          <strong>Enter your credentials</strong><br>
+          Use the username and password provided by your administrator. Passwords are case-sensitive.
+        </li>
+        <li>
+          <strong>Complete 2FA (if enabled)</strong><br>
+          If your account has two-factor authentication enabled, enter the 6-digit code from your authenticator app (Google Authenticator, Authy, etc.).
+        </li>
+        <li>
+          <strong>Access the dashboard</strong><br>
+          After login, you'll be redirected to the dashboard showing total contacts, pipeline summary, and recent activity.
+        </li>
+      </ol>
+
+      <div class="alert alert-info">
+        <strong>Account Lockout</strong>
+        After 5 consecutive failed login attempts, your account is locked for 15 minutes. A Telegram notification is sent to the administrator. Contact your admin if locked out.
+      </div>
+
+      <h3 id="admin-panel-pages">Admin Panel Pages</h3>
+      <table>
+        <thead>
+          <tr><th>Page</th><th>URL</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Dashboard</strong></td><td><code>/admin/dashboard</code></td><td>Stats overview, recent activity, pipeline summary</td></tr>
+          <tr><td><strong>Contacts</strong></td><td><code>/admin/contacts</code></td><td>Full contact list with search, filters, and CSV export</td></tr>
+          <tr><td><strong>Pipeline</strong></td><td><code>/admin/pipeline</code></td><td>Kanban board for managing deal stages</td></tr>
+          <tr><td><strong>CEO Dashboard</strong></td><td><code>/admin/ceo</code></td><td>Revenue metrics, MRR tracking, goal progress</td></tr>
+          <tr><td><strong>Users</strong></td><td><code>/admin/users</code></td><td>Admin user management (superadmin only)</td></tr>
+          <tr><td><strong>Settings</strong></td><td><code>/admin/settings</code></td><td>Password change, 2FA setup, theme toggle</td></tr>
+          <tr><td><strong>Docs</strong></td><td><code>/admin/docs</code></td><td>Internal documentation hub (this site)</td></tr>
+        </tbody>
+      </table>
+
+      <h3 id="pipeline-stages">Pipeline Stages</h3>
+      <p>Contacts move through these stages in the CRM pipeline:</p>
+      <table>
+        <thead>
+          <tr><th>Stage</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>New</strong></td><td>Fresh lead, not yet contacted</td></tr>
+          <tr><td><strong>Contacted</strong></td><td>Initial outreach sent</td></tr>
+          <tr><td><strong>In Conversation</strong></td><td>Active dialogue with prospect</td></tr>
+          <tr><td><strong>Proposal Sent</strong></td><td>Formal proposal delivered</td></tr>
+          <tr><td><strong>Closed Won</strong></td><td>Deal completed &mdash; triggers Telegram notification</td></tr>
+          <tr><td><strong>Closed Lost</strong></td><td>Prospect declined or went elsewhere</td></tr>
+        </tbody>
+      </table>
+
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!--  CLIENT PORTAL                                                  -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <h2 id="client-portal">Client Portal</h2>
+      <p>The client portal gives your clients a branded, secure space to interact with their projects without needing admin access.</p>
+
+      <h3 id="portal-features">Features</h3>
+      <ul>
+        <li><strong>Project Overview</strong> &mdash; Clients see their project status, milestones, and deliverables in real time</li>
+        <li><strong>Messaging</strong> &mdash; Threaded conversations between client and team, stored in the activity log</li>
+        <li><strong>File Sharing</strong> &mdash; Upload and download project assets (designs, documents, code deliverables)</li>
+        <li><strong>Invoice Access</strong> &mdash; View and pay invoices directly through the portal via Stripe</li>
+        <li><strong>Proposal Review</strong> &mdash; Review proposals with scope, timeline, and pricing &mdash; accept or request changes</li>
+      </ul>
+
+      <h3 id="portal-access">How Clients Get Access</h3>
+      <ol class="steps">
+        <li>
+          <strong>Admin creates the client contact</strong><br>
+          Add the client in the CRM with their email address. Move them to an active stage.
+        </li>
+        <li>
+          <strong>Portal invite is sent</strong><br>
+          Send a portal invitation via email (Resend). The client receives a unique login link.
+        </li>
+        <li>
+          <strong>Client sets their password</strong><br>
+          On first login, clients set their own password. No admin password sharing needed.
+        </li>
+        <li>
+          <strong>Ongoing access</strong><br>
+          Clients log in at the portal URL and see only their own projects, invoices, and messages.
+        </li>
+      </ol>
+
+      <div class="alert alert-warn">
+        <strong>Data Isolation</strong>
+        Clients can only see data associated with their own account. All queries are scoped by <code>contact_id</code>. There is no cross-client data leakage.
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!--  LOCI PLATFORM                                                  -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <h2 id="loci-platform">Loci Platform</h2>
+      <p>Loci is a venue-based real-time chat application. Users can discover nearby venues (bars, cafes, events) and join chat rooms attached to those locations.</p>
+
+      <h3 id="loci-how-it-works">How It Works</h3>
+      <ol class="steps">
+        <li>
+          <strong>User opens Loci</strong><br>
+          Available at <code>loci.netsudo.com</code>. Users can sign up with email (OTP verification) or use anonymous access.
+        </li>
+        <li>
+          <strong>Location detection</strong><br>
+          The app uses browser geolocation to find nearby venues. Venues are displayed on a map or list sorted by distance.
+        </li>
+        <li>
+          <strong>Join a room</strong><br>
+          Each venue has chat rooms. Users join a room and see real-time messages from other users at that venue.
+        </li>
+        <li>
+          <strong>Real-time messaging</strong><br>
+          Messages are delivered instantly via Supabase Realtime (WebSocket channels). No polling.
+        </li>
+      </ol>
+
+      <h3 id="loci-tech">Technical Details</h3>
+      <table>
+        <thead>
+          <tr><th>Component</th><th>Detail</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Backend</strong></td><td>Supabase (PostgreSQL + Realtime + Auth)</td></tr>
+          <tr><td><strong>Auth</strong></td><td>Email OTP or anonymous sessions</td></tr>
+          <tr><td><strong>Realtime</strong></td><td>Supabase Channels (WebSocket)</td></tr>
+          <tr><td><strong>Geolocation</strong></td><td>Browser Geolocation API</td></tr>
+          <tr><td><strong>Data</strong></td><td>Row Level Security (RLS) on all tables</td></tr>
+          <tr><td><strong>Beta Signups</strong></td><td>Stored in NetSudo CRM via <code>POST /admin/loci/signup</code></td></tr>
+        </tbody>
+      </table>
+
+      <div class="alert alert-info">
+        <strong>Beta Signups</strong>
+        Loci beta signups flow into the NetSudo CRM automatically. Each signup creates a contact with <code>source: loci-beta</code> and triggers a Telegram notification.
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!--  BILLING & INVOICING                                            -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <h2 id="billing-invoicing">Billing &amp; Invoicing</h2>
+      <p>NetSudo includes a full billing system for tracking revenue, managing projects, and sending invoices to clients.</p>
+
+      <h3 id="revenue-tracking">Revenue Tracking</h3>
+      <p>Revenue entries are tracked in the CEO dashboard with two types:</p>
+      <table>
+        <thead>
+          <tr><th>Type</th><th>Description</th><th>MRR Impact</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>one-time</code></td><td>Project payments, setup fees, one-off work</td><td>Not included in MRR</td></tr>
+          <tr><td><code>recurring</code></td><td>Monthly retainers, hosting, maintenance</td><td>Counted toward MRR goal</td></tr>
+        </tbody>
+      </table>
+
+      <h3 id="revenue-statuses">Revenue Statuses</h3>
+      <ul>
+        <li><strong>pending</strong> &mdash; Invoice sent but not yet paid</li>
+        <li><strong>paid</strong> &mdash; Payment received and confirmed</li>
+      </ul>
+
+      <h3 id="project-management">Project Management</h3>
+      <p>Projects are linked to contacts and track:</p>
+      <ul>
+        <li><strong>Value</strong> &mdash; Total project value (one-time)</li>
+        <li><strong>Monthly Value</strong> &mdash; Recurring monthly revenue from this project</li>
+        <li><strong>Status</strong> &mdash; Active, completed, paused, or cancelled</li>
+        <li><strong>Dates</strong> &mdash; Start date and deadline tracking</li>
+        <li><strong>Notes</strong> &mdash; Internal project notes</li>
+      </ul>
+
+      <h3 id="invoicing-flow">Invoicing Workflow</h3>
+      <ol class="steps">
+        <li>
+          <strong>Create invoice</strong><br>
+          Build an invoice with line items, quantities, and prices. Link it to a contact and project.
+        </li>
+        <li>
+          <strong>Send to client</strong><br>
+          Email the invoice via Resend. The client receives a branded email with a link to view and pay.
+        </li>
+        <li>
+          <strong>Client pays</strong><br>
+          Client views the public invoice page and pays via Stripe. Payment is processed securely.
+        </li>
+        <li>
+          <strong>Revenue recorded</strong><br>
+          Once paid, the revenue entry is marked as <code>paid</code> and reflected in the CEO dashboard and weekly reports.
+        </li>
+      </ol>
+
+      <h3 id="ceo-dashboard">CEO Dashboard</h3>
+      <p>The CEO dashboard (<code>/admin/ceo</code>) provides executive-level metrics:</p>
+      <ul>
+        <li><strong>Month Revenue</strong> &mdash; Total paid revenue for the current month</li>
+        <li><strong>MRR</strong> &mdash; Monthly recurring revenue from all recurring entries</li>
+        <li><strong>Goal Progress</strong> &mdash; Visual progress toward the $50K MRR goal</li>
+        <li><strong>Pipeline Value</strong> &mdash; Total value of active deals in the pipeline</li>
+        <li><strong>Daily Revenue Chart</strong> &mdash; Day-by-day revenue for the current month</li>
+        <li><strong>Active Clients</strong> &mdash; List of clients with recent activity</li>
+      </ul>
+
+      <h3 id="weekly-reports">Weekly Telegram Reports</h3>
+      <p>Every Monday at 9 AM EST, NetSudo automatically sends a weekly report via Telegram including:</p>
+      <ul>
+        <li>Revenue this month</li>
+        <li>MRR vs goal with percentage</li>
+        <li>Gap to goal (how much more is needed)</li>
+        <li>Pipeline deals count and total value</li>
+        <li>New contacts this week</li>
+      </ul>
+
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!--  SECURITY OVERVIEW                                              -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <h2 id="security">Security</h2>
+      <p>NetSudo implements multiple layers of security. For the full security guide including 2FA setup and audit log details, see the <a href="/docs/security">Security Documentation</a>.</p>
+
+      <h3 id="security-summary">Summary</h3>
+      <table>
+        <thead>
+          <tr><th>Layer</th><th>Implementation</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Passwords</strong></td><td>bcrypt with 10 salt rounds, minimum 8 characters</td></tr>
+          <tr><td><strong>2FA</strong></td><td>TOTP via speakeasy, QR code setup, 1-token window tolerance</td></tr>
+          <tr><td><strong>Sessions</strong></td><td>Server-side, httpOnly, secure, sameSite strict, 8-hour expiry</td></tr>
+          <tr><td><strong>Rate Limiting</strong></td><td>10 login attempts per 15 minutes per IP</td></tr>
+          <tr><td><strong>Account Lockout</strong></td><td>5 failed attempts = 15-minute lockout + Telegram alert</td></tr>
+          <tr><td><strong>CSP</strong></td><td>Helmet with strict Content Security Policy</td></tr>
+          <tr><td><strong>Audit Log</strong></td><td>All login attempts recorded with IP, user agent, timestamp</td></tr>
+          <tr><td><strong>Role-Based Access</strong></td><td>Superadmin-only routes for user management and audit logs</td></tr>
+        </tbody>
+      </table>
+
+      <p>For details on setting up 2FA, password policies, session management, and reading audit logs, see the <a href="/docs/security">full Security documentation</a>.</p>
+
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!--  API REFERENCE                                                  -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <h2 id="api-reference">API Reference</h2>
+      <p>NetSudo exposes a REST API for all operations. All <code>/admin/api/*</code> endpoints require session authentication unless noted otherwise.</p>
+
+      <h3 id="api-quick-ref">Quick Reference</h3>
+      <table>
+        <thead>
+          <tr><th>Area</th><th>Endpoints</th><th>Auth</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Auth</strong></td><td><code>POST /admin/login</code>, <code>POST /admin/2fa</code>, <code>GET /admin/logout</code></td><td>Public (rate limited)</td></tr>
+          <tr><td><strong>Contacts</strong></td><td>Full CRUD + stage, notes, email, CSV export</td><td>Session required</td></tr>
+          <tr><td><strong>Revenue</strong></td><td>Full CRUD for revenue entries</td><td>Session required</td></tr>
+          <tr><td><strong>Projects</strong></td><td>Full CRUD for projects</td><td>Session required</td></tr>
+          <tr><td><strong>Users</strong></td><td>Full CRUD for admin users</td><td>Superadmin only</td></tr>
+          <tr><td><strong>Settings</strong></td><td>Password change, 2FA enable/disable</td><td>Session required</td></tr>
+          <tr><td><strong>Audit</strong></td><td>Login attempts log</td><td>Superadmin only</td></tr>
+          <tr><td><strong>Loci</strong></td><td>Beta signups, QR management</td><td>Public / Secret key</td></tr>
+        </tbody>
+      </table>
+
+      <p>For complete endpoint documentation with request/response schemas and curl examples, see the <a href="/docs/api">API Reference</a>.</p>
+
+      <!-- ── Footer ──────────────────────────────────────────────────── -->
+      <div class="docs-footer">
+        <span>NetSudo Documentation &mdash; Internal Use</span>
+        <span><a href="/admin/dashboard">Admin Panel</a></span>
+      </div>
+    </main>
+
+    <!-- ── Right TOC ───────────────────────────────────────────────── -->
+    <aside class="docs-toc" id="toc"></aside>
+  </div>
+
+  <script src="/docs/docs.js"></script>
+</body>
+</html>
