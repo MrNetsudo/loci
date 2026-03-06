@@ -25,9 +25,7 @@ jobs:
       - name: Install pg
         run: npm install pg
 
-      - name: Run migrations
-        env:
-          LOCI_DATABASE_URL: ${{ secrets.LOCI_DATABASE_URL }}
+      - name: Run migrations via Supabase Pooler
         run: |
           node -e "
           const {Client} = require('pg');
@@ -49,15 +47,21 @@ jobs:
             CREATE INDEX IF NOT EXISTS idx_otp_codes_email_used ON otp_codes(email, used);
           \`;
           
+          // Use IPv4-accessible pooler (Transaction Mode)
+          // Username format: postgres.PROJECT_REF
           const client = new Client({
-            connectionString: process.env.LOCI_DATABASE_URL,
+            host: 'aws-0-us-east-1.pooler.supabase.com',
+            port: 6543,
+            database: 'postgres',
+            user: 'postgres.iczzskqumlrtifjyjvdl',
+            password: 'YwJvXtsPJSMRGqX9qNz!',
             ssl: { rejectUnauthorized: false },
-            connectionTimeoutMillis: 15000,
+            connectionTimeoutMillis: 20000,
           });
           
           client.connect()
             .then(() => {
-              console.log('Connected to DB');
+              console.log('Connected to DB via pooler');
               return client.query(SQL);
             })
             .then(() => {
@@ -65,7 +69,7 @@ jobs:
               return client.end();
             })
             .catch(err => {
-              console.error('Migration FAILED:', err.message);
+              console.error('Migration FAILED:', err.message, 'code:', err.code);
               client.end();
               process.exit(1);
             });
