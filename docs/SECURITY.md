@@ -70,7 +70,7 @@
 
 ## Incident Response
 
-1. Security issues → report to security@loci.app (private disclosure)
+1. Security issues → report to security@hereya.app (private disclosure)
 2. 24-hour acknowledgment SLA
 3. Critical vulnerabilities patched within 72 hours
 4. Users notified of data incidents per GDPR/CCPA requirements

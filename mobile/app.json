@@ -5,7 +5,7 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "scheme": "loci",
+    "scheme": "hereya",
     "userInterfaceStyle": "dark",
     "splash": {
       "image": "./assets/splash.png",
@@ -17,7 +17,7 @@
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.netsudo.loci",
+      "bundleIdentifier": "com.netsudo.hereya",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Hereya needs your location to find venues near you and put you in the right chat room.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Hereya uses your location to keep you in the venue chat room while you're there."
@@ -28,7 +28,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0a0a0a"
       },
-      "package": "com.netsudo.loci",
+      "package": "com.netsudo.hereya",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION"

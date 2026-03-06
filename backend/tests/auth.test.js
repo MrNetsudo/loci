@@ -85,7 +85,7 @@ describe('POST /auth/register', () => {
     }));
 
     const res = await request(app).post(`${BASE}/register`).send({
-      email: 'test@loci.dev',
+      email: 'test@hereya.app',
       password: 'SecurePass123!',
       display_name: 'TestUser',
     });
@@ -107,7 +107,7 @@ describe('POST /auth/register', () => {
   it('rejects password shorter than 8 chars', async () => {
     const res = await request(app)
       .post(`${BASE}/register`)
-      .send({ email: 'test@loci.dev', password: 'short' });
+      .send({ email: 'test@hereya.app', password: 'short' });
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('VALIDATION_ERROR');
   });
@@ -127,7 +127,7 @@ describe('POST /auth/register', () => {
     });
 
     const res = await request(app).post(`${BASE}/register`).send({
-      email: 'taken@loci.dev',
+      email: 'taken@hereya.app',
       password: 'SecurePass123!',
     });
     expect(res.status).toBe(400);
@@ -153,7 +153,7 @@ describe('POST /auth/login', () => {
     }));
 
     const res = await request(app).post(`${BASE}/login`).send({
-      email: 'test@loci.dev',
+      email: 'test@hereya.app',
       password: 'SecurePass123!',
     });
 
@@ -170,7 +170,7 @@ describe('POST /auth/login', () => {
     });
 
     const res = await request(app).post(`${BASE}/login`).send({
-      email: 'test@loci.dev',
+      email: 'test@hereya.app',
       password: 'WrongPass!',
     });
     expect(res.status).toBe(401);
@@ -180,7 +180,7 @@ describe('POST /auth/login', () => {
   it('rejects missing password', async () => {
     const res = await request(app)
       .post(`${BASE}/login`)
-      .send({ email: 'test@loci.dev' });
+      .send({ email: 'test@hereya.app' });
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('VALIDATION_ERROR');
   });

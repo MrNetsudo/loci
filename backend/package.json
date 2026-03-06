@@ -1,5 +1,5 @@
 {
-  "name": "loci-backend",
+  "name": "hereya-backend",
   "version": "0.1.0",
   "description": "Hereya — Venue-based real-time social chat backend [PLACEHOLDER NAME]",
   "main": "server.js",

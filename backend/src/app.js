@@ -26,7 +26,7 @@ app.set('trust proxy', 1);
 app.use(helmet());
 app.use(cors({
   origin: process.env.NODE_ENV === 'production'
-    ? ['https://loci.app', 'https://www.loci.app']
+    ? ['https://hereya.app', 'https://www.hereya.app']
     : '*',
   methods: ['GET', 'POST', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -56,7 +56,7 @@ app.get('/', (_req, res) => {
     app: 'Hereya',
     version: process.env.LOCI_API_VERSION || 'v1',
     status: 'online',
-    docs: 'https://github.com/MrNetsudo/loci',
+    docs: 'https://github.com/MrNetsudo/hereya',
     endpoints: {
       health: '/health',
       auth: '/api/v1/auth',

@@ -45,7 +45,7 @@ module.exports = {
   },
   resend: {
     apiKey: process.env.RESEND_API_KEY,
-    from: process.env.RESEND_FROM || 'Loci <hello@netsudo.com>',
+    from: process.env.RESEND_FROM || 'Hereya <auth@hereya.app>',
   },
   logging: {
     level: process.env.LOCI_LOG_LEVEL || 'info',

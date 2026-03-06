@@ -34,7 +34,7 @@ function buildOtpEmail(name, code) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Your Loci verification code</title>
+  <title>Your Hereya verification code</title>
 </head>
 <body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;min-height:100vh;">
@@ -50,7 +50,7 @@ function buildOtpEmail(name, code) {
           <tr>
             <td style="padding:32px 40px;">
               <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#ffffff;">Here's your code</h1>
-              <p style="margin:0 0 28px;font-size:14px;color:#888;line-height:1.6;">Hi ${name}, use this 6-digit code to verify your Loci account.</p>
+              <p style="margin:0 0 28px;font-size:14px;color:#888;line-height:1.6;">Hi ${name}, use this 6-digit code to verify your Hereya account.</p>
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center" style="padding:0 0 28px;">
@@ -66,7 +66,7 @@ function buildOtpEmail(name, code) {
           </tr>
           <tr>
             <td align="center" style="padding:20px 40px;border-top:1px solid #1e1e2e;">
-              <p style="margin:0;font-size:12px;color:#444;">Loci &middot; by NetSudo</p>
+              <p style="margin:0;font-size:12px;color:#444;">Hereya · You have to be here.</p>
             </td>
           </tr>
         </table>
@@ -254,31 +254,27 @@ router.post('/email-signup', authLimiter, async (req, res, next) => {
     const cleanEmail = String(email).toLowerCase().trim();
     const cleanName = String(name).trim();
 
-    // Generate our own 6-digit code — store in memory, send via Gmail
+    // Generate our own 6-digit code — store in memory, send via Resend
     const code = generateOtp();
     storeOtp(cleanEmail, code, cleanName);
 
-    // Send via Gmail OAuth2
-    const nodemailer = require('nodemailer');
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        type: 'OAuth2',
-        user: process.env.GMAIL_USER || 'thesavageatit@gmail.com',
-        clientId: process.env.GMAIL_CLIENT_ID,
-        clientSecret: process.env.GMAIL_CLIENT_SECRET,
-        refreshToken: process.env.GMAIL_REFRESH_TOKEN,
-      },
-    });
+    // Send via Resend
+    const { Resend } = require('resend');
+    const resend = new Resend(process.env.RESEND_API_KEY);
 
-    await transporter.sendMail({
-      from: `"Loci App" <${process.env.GMAIL_USER || 'thesavageatit@gmail.com'}>`,
+    const { error: sendError } = await resend.emails.send({
+      from: process.env.RESEND_FROM || 'Hereya <hello@hereya.app>',
       to: cleanEmail,
-      subject: 'Your Loci verification code',
+      subject: 'Your Hereya verification code',
       html: buildOtpEmail(cleanName, code),
     });
 
-    logger.info('OTP sent via Gmail', { email: cleanEmail });
+    if (sendError) {
+      logger.error('Resend error', { error: sendError, email: cleanEmail });
+      return res.status(500).json({ error: 'EMAIL_ERROR', message: 'Failed to send verification email' });
+    }
+
+    logger.info('OTP sent via Resend', { email: cleanEmail });
     return res.json({ ok: true, message: 'Verification code sent to your email' });
   } catch (err) {
     return next(err);

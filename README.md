@@ -33,7 +33,7 @@ Hereya is a venue-anchored, presence-required social chat platform. Users physic
 ## Repository Structure
 
 ```
-loci/
+hereya/
 ├── backend/
 │   ├── src/
 │   │   ├── api/
@@ -66,8 +66,8 @@ loci/
 
 ```bash
 # 1. Clone
-git clone https://github.com/MrNetsudo/loci.git
-cd loci/backend
+git clone https://github.com/MrNetsudo/hereya.git
+cd hereya//backend
 
 # 2. Install
 npm install
