@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Loci Admin — Dashboard</title>
+  <link rel="stylesheet" href="/admin/css/style.css">
+</head>
+<body>
+<div class="app-layout" id="app-layout">
+  <div class="sidebar-overlay"></div>
+  <aside id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon" style="background:linear-gradient(135deg,#6366f1,#06b6d4)">L</div>
+      <div>
+        <div class="brand-text">Loci</div>
+        <div class="brand-sub">Admin Panel</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Loci</div>
+      <a href="/loci" class="nav-item active">
+        <span class="nav-icon">📊</span><span class="nav-text">Dashboard</span>
+      </a>
+      <a href="/loci/venues" class="nav-item">
+        <span class="nav-icon">📍</span><span class="nav-text">Venues</span>
+      </a>
+      <a href="/loci/rooms" class="nav-item">
+        <span class="nav-icon">💬</span><span class="nav-text">Rooms</span>
+      </a>
+      <a href="/loci/moderation" class="nav-item">
+        <span class="nav-icon">🛡</span><span class="nav-text">Moderation</span>
+      </a>
+      <div class="nav-section-label">NetSudo</div>
+      <a href="/admin/dashboard" class="nav-item">
+        <span class="nav-icon">⚙</span><span class="nav-text">Main Admin</span>
+      </a>
+    </nav>
+  </aside>
+  <div class="main-wrapper">
+    <header id="topbar">
+      <div class="topbar-left">
+        <button class="sidebar-toggle" onclick="document.getElementById('app-layout').classList.toggle('sidebar-open')">☰</button>
+        <h1 class="page-title">Loci Dashboard</h1>
+      </div>
+      <div class="topbar-right">
+        <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()"></button>
+        <a href="/admin/logout" class="logout-btn">Logout</a>
+      </div>
+    </header>
+    <main class="main-content">
+
+      <!-- Stats -->
+      <div class="stats-grid">
+        <div class="stat-card" style="--stat-color:#6366f1">
+          <div class="stat-icon-wrap" style="--stat-bg:rgba(99,102,241,0.12)">📍</div>
+          <div class="stat-value" id="s-venues"><span class="skeleton" style="width:50px;height:32px;display:inline-block"></span></div>
+          <div class="stat-label">Total Venues</div>
+        </div>
+        <div class="stat-card" style="--stat-color:#06b6d4">
+          <div class="stat-icon-wrap" style="--stat-bg:rgba(6,182,212,0.12)">💬</div>
+          <div class="stat-value" id="s-rooms"><span class="skeleton" style="width:50px;height:32px;display:inline-block"></span></div>
+          <div class="stat-label">Active Rooms</div>
+        </div>
+        <div class="stat-card" style="--stat-color:#10b981">
+          <div class="stat-icon-wrap" style="--stat-bg:rgba(16,185,129,0.12)">👥</div>
+          <div class="stat-value" id="s-users"><span class="skeleton" style="width:50px;height:32px;display:inline-block"></span></div>
+          <div class="stat-label">Users</div>
+        </div>
+        <div class="stat-card" style="--stat-color:#f59e0b">
+          <div class="stat-icon-wrap" style="--stat-bg:rgba(245,158,11,0.12)">✉</div>
+          <div class="stat-value" id="s-msgs"><span class="skeleton" style="width:50px;height:32px;display:inline-block"></span></div>
+          <div class="stat-label">Messages Today</div>
+        </div>
+      </div>
+
+      <!-- Live Room Feed + Quick Actions -->
+      <div class="grid-3-1">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Live Room Feed</span>
+            <a href="/loci/rooms" class="btn btn-ghost btn-sm">All rooms →</a>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Venue</th><th>Status</th><th>Occupancy</th><th>Started</th></tr>
+              </thead>
+              <tbody id="live-tbody">
+                <tr><td colspan="4"><div class="skeleton skeleton-row"></div></td></tr>
+                <tr><td colspan="4"><div class="skeleton skeleton-row"></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><span class="card-title">Quick Actions</span></div>
+          <div class="card-body" style="display:flex;flex-direction:column;gap:10px">
+            <a href="/loci/venues" class="btn btn-primary" style="justify-content:center">+ Add Venue</a>
+            <a href="/loci/rooms" class="btn btn-secondary" style="justify-content:center">View Live Rooms</a>
+            <a href="/loci/moderation" class="btn btn-secondary" style="justify-content:center">Moderation Queue</a>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+<div id="toast-container"></div>
+<script>
+function toggleTheme(){
+  const t=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme',t);
+  localStorage.setItem('ns-theme',t);
+  document.getElementById('theme-toggle').textContent=t==='dark'?'☀️':'🌙';
+}
+(function(){
+  const t=localStorage.getItem('ns-theme')||'dark';
+  document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('theme-toggle').textContent=t==='dark'?'☀️':'🌙';
+  document.querySelector('.sidebar-overlay').onclick=()=>document.getElementById('app-layout').classList.remove('sidebar-open');
+})();
+
+function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):''}
+function timeAgo(d){if(!d)return'';const m=Math.floor((Date.now()-new Date(d))/60000);if(m<1)return'just now';if(m<60)return m+'m ago';const h=Math.floor(m/60);return h<24?h+'h ago':Math.floor(h/24)+'d ago';}
+
+function statusBadge(s){
+  const colors={active:'#10b981',warming:'#f59e0b',cooling:'#06b6d4',closed:'#6b7280'};
+  const c=colors[s]||'#6b7280';
+  return '<span class="badge" style="background:'+c+'18;color:'+c+';border:1px solid '+c+'30">'+esc(s)+'</span>';
+}
+
+async function load(){
+  try{
+    const stats=await fetch('/api/loci/stats').then(r=>r.json());
+    document.getElementById('s-venues').textContent=stats.venues.toLocaleString();
+    document.getElementById('s-rooms').textContent=stats.activeRooms;
+    document.getElementById('s-users').textContent=stats.users.toLocaleString();
+    document.getElementById('s-msgs').textContent=stats.messagesToday.toLocaleString();
+  }catch(e){console.error(e)}
+  try{
+    const data=await fetch('/api/loci/rooms/live').then(r=>r.json());
+    const tb=document.getElementById('live-tbody');
+    if(!data.rooms.length){tb.innerHTML='<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text-muted)">No active rooms</td></tr>';return;}
+    tb.innerHTML=data.rooms.map(r=>`<tr>
+      <td><strong>${esc(r.venue)}</strong></td>
+      <td>${statusBadge(r.status)}</td>
+      <td>${r.occupancy}</td>
+      <td class="td-muted">${timeAgo(r.started)}</td>
+    </tr>`).join('');
+  }catch(e){console.error(e)}
+}
+load();
+</script>
+</body>
+</html>

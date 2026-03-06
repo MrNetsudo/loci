@@ -732,6 +732,18 @@ app.post("/api/client/tickets",requireClient,(req,res)=>res.json({ok:true,id:"TK
 app.get("/api/client/invoices",requireClient,(req,res)=>res.json({invoices:[{id:"INV-001",amount:2500,date:"2026-03-01",status:"Paid"},{id:"INV-002",amount:1800,date:"2026-03-15",status:"Unpaid"}]}));
 app.get("/api/client/projects",requireClient,(req,res)=>res.json({projects:[{name:"Network Upgrade",status:"In Progress",progress:65,eta:"2026-04-01"},{name:"Security Audit",status:"Planning",progress:10,eta:"2026-05-01"}]}));
 
+// ── Hereya Admin Panel ────────────────────────────────────────────────────────
+function requireAdmin(req,res,next){if(req.session?.user)return next();res.redirect("/login")}
+app.get("/hereya",(req,res)=>res.sendFile(path.join(__dirname,"views/loci-admin.html")));
+app.get("/hereya/venues",(req,res)=>res.sendFile(path.join(__dirname,"views/loci-venues.html")));
+app.get("/hereya/rooms",(req,res)=>res.sendFile(path.join(__dirname,"views/loci-rooms.html")));
+app.get("/hereya/moderation",(req,res)=>res.sendFile(path.join(__dirname,"views/loci-moderation.html")));
+app.get("/api/hereya/stats",(req,res)=>res.json({venues:142,activeRooms:7,users:1204,messagesToday:3847}));
+app.get("/api/hereya/venues",(req,res)=>res.json({venues:[{id:1,name:"The Rusty Nail",category:"bar",city:"New York",radius:100,active:true,partner:false},{id:2,name:"Madison Square Garden",category:"stadium",city:"New York",radius:200,active:true,partner:true}]}));
+app.post("/api/hereya/venues",(req,res)=>res.json({ok:true}));
+app.get("/api/hereya/rooms/live",(req,res)=>res.json({rooms:[{venue:"The Rusty Nail",status:"active",occupancy:47,started:new Date(Date.now()-3600000).toISOString()},{venue:"MSG",status:"warming",occupancy:12,started:new Date(Date.now()-600000).toISOString()}]}));
+app.get("/api/hereya/moderation",(req,res)=>res.json({flagged:[{id:1,snippet:"Hey check out this link...",venue:"The Rusty Nail",reason:"spam",time:new Date().toISOString()}]}));
+
 app.listen(PORT, () => console.log(`✓ NetSudo Admin running on port ${PORT}`));
 
 // ── Resend Email Helper ───────────────────────────────────────────────────────

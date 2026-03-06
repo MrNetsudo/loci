@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Loci Admin — Venues</title>
+  <link rel="stylesheet" href="/admin/css/style.css">
+</head>
+<body>
+<div class="app-layout" id="app-layout">
+  <div class="sidebar-overlay"></div>
+  <aside id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon" style="background:linear-gradient(135deg,#6366f1,#06b6d4)">L</div>
+      <div>
+        <div class="brand-text">Loci</div>
+        <div class="brand-sub">Admin Panel</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Loci</div>
+      <a href="/loci" class="nav-item">
+        <span class="nav-icon">📊</span><span class="nav-text">Dashboard</span>
+      </a>
+      <a href="/loci/venues" class="nav-item active">
+        <span class="nav-icon">📍</span><span class="nav-text">Venues</span>
+      </a>
+      <a href="/loci/rooms" class="nav-item">
+        <span class="nav-icon">💬</span><span class="nav-text">Rooms</span>
+      </a>
+      <a href="/loci/moderation" class="nav-item">
+        <span class="nav-icon">🛡</span><span class="nav-text">Moderation</span>
+      </a>
+      <div class="nav-section-label">NetSudo</div>
+      <a href="/admin/dashboard" class="nav-item">
+        <span class="nav-icon">⚙</span><span class="nav-text">Main Admin</span>
+      </a>
+    </nav>
+  </aside>
+  <div class="main-wrapper">
+    <header id="topbar">
+      <div class="topbar-left">
+        <button class="sidebar-toggle" onclick="document.getElementById('app-layout').classList.toggle('sidebar-open')">☰</button>
+        <h1 class="page-title">Venues</h1>
+      </div>
+      <div class="topbar-right">
+        <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()"></button>
+        <a href="/admin/logout" class="logout-btn">Logout</a>
+      </div>
+    </header>
+    <main class="main-content">
+
+      <!-- Add Venue Form -->
+      <div class="card mb-24">
+        <div class="card-header"><span class="card-title">Add Venue</span></div>
+        <div class="card-body">
+          <form id="add-form" class="form-row" style="grid-template-columns:1fr 1fr 1fr 120px auto;align-items:end;gap:10px">
+            <div class="form-group" style="margin:0">
+              <label class="form-label">Name</label>
+              <input class="form-control" name="name" placeholder="Venue name" required>
+            </div>
+            <div class="form-group" style="margin:0">
+              <label class="form-label">Category</label>
+              <select class="form-control" name="category">
+                <option value="bar">Bar</option>
+                <option value="restaurant">Restaurant</option>
+                <option value="stadium">Stadium</option>
+                <option value="cafe">Cafe</option>
+                <option value="club">Club</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0">
+              <label class="form-label">City</label>
+              <input class="form-control" name="city" placeholder="City" required>
+            </div>
+            <div class="form-group" style="margin:0">
+              <label class="form-label">Radius (m)</label>
+              <input class="form-control" name="radius" type="number" value="100" min="10" max="1000">
+            </div>
+            <button class="btn btn-primary" type="submit" style="height:38px">Add</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Venue Table -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">All Venues</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Category</th>
+                <th>City</th>
+                <th>Geofence Radius</th>
+                <th>Status</th>
+                <th>Partner</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="venues-tbody">
+              <tr><td colspan="7"><div class="skeleton skeleton-row"></div></td></tr>
+              <tr><td colspan="7"><div class="skeleton skeleton-row"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+<div id="toast-container"></div>
+<script>
+function toggleTheme(){
+  const t=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme',t);
+  localStorage.setItem('ns-theme',t);
+  document.getElementById('theme-toggle').textContent=t==='dark'?'☀️':'🌙';
+}
+(function(){
+  const t=localStorage.getItem('ns-theme')||'dark';
+  document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('theme-toggle').textContent=t==='dark'?'☀️':'🌙';
+  document.querySelector('.sidebar-overlay').onclick=()=>document.getElementById('app-layout').classList.remove('sidebar-open');
+})();
+
+function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):''}
+function toast(msg,type='success'){
+  const c=document.getElementById('toast-container');
+  const icons={success:'✓',error:'✕'};
+  const el=document.createElement('div');
+  el.className='toast toast-'+type;
+  el.innerHTML='<div class="toast-icon">'+icons[type]+'</div><div class="toast-msg">'+msg+'</div>';
+  c.appendChild(el);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.add('show')));
+  setTimeout(()=>{el.classList.remove('show');setTimeout(()=>el.remove(),350)},3500);
+}
+
+let venues=[];
+
+function render(){
+  const tb=document.getElementById('venues-tbody');
+  if(!venues.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted)">No venues</td></tr>';return;}
+  tb.innerHTML=venues.map(v=>{
+    const statusColor=v.active?'#10b981':'#6b7280';
+    const statusLabel=v.active?'Active':'Inactive';
+    const partnerColor=v.partner?'#f59e0b':'#6b7280';
+    return `<tr>
+      <td><strong>${esc(v.name)}</strong></td>
+      <td style="text-transform:capitalize">${esc(v.category)}</td>
+      <td>${esc(v.city)}</td>
+      <td class="td-mono">${v.radius}m</td>
+      <td><span class="badge" style="background:${statusColor}18;color:${statusColor};border:1px solid ${statusColor}30">${statusLabel}</span></td>
+      <td>${v.partner?'<span class="badge" style="background:#f59e0b18;color:#f59e0b;border:1px solid #f59e0b30">Partner</span>':'<span class="td-muted">—</span>'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-ghost btn-xs" onclick="toggleStatus(${v.id})">${v.active?'Disable':'Enable'}</button>
+        <button class="btn btn-ghost btn-xs" onclick="togglePartner(${v.id})">${v.partner?'Remove Partner':'Make Partner'}</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function toggleStatus(id){
+  const v=venues.find(x=>x.id===id);
+  if(v){v.active=!v.active;render();toast(v.name+(v.active?' enabled':' disabled'));}
+}
+function togglePartner(id){
+  const v=venues.find(x=>x.id===id);
+  if(v){v.partner=!v.partner;render();toast(v.name+(v.partner?' marked as partner':' partner removed'));}
+}
+
+async function load(){
+  try{
+    const data=await fetch('/api/loci/venues').then(r=>r.json());
+    venues=data.venues||[];
+    render();
+  }catch(e){console.error(e)}
+}
+
+document.getElementById('add-form').onsubmit=async function(e){
+  e.preventDefault();
+  const fd=new FormData(this);
+  const body={name:fd.get('name'),category:fd.get('category'),city:fd.get('city'),radius:parseInt(fd.get('radius'))||100};
+  try{
+    await fetch('/api/loci/venues',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    venues.push({id:Date.now(),name:body.name,category:body.category,city:body.city,radius:body.radius,active:true,partner:false});
+    render();
+    this.reset();
+    toast('Venue added');
+  }catch(e){toast('Failed to add venue','error')}
+};
+
+load();
+</script>
+</body>
+</html>
