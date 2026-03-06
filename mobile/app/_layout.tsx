@@ -52,6 +52,13 @@ export default function RootLayout() {
             headerBackVisible: true,
           }}
         />
+        <Stack.Screen
+          name="venue/[id]"
+          options={{
+            title: 'Venue',
+            headerBackVisible: true,
+          }}
+        />
       </Stack>
     </>
   );

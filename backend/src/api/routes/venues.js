@@ -44,6 +44,11 @@ router.get('/nearby', optionalAuth, async (req, res, next) => {
   }
 });
 
+// In-memory vibe tag store: roomId → { tagKey → count }
+// Tags are ephemeral — scoped to each room session
+const vibeTagStore = new Map();
+const VALID_TAGS = new Set(['loud', 'chill', 'packed', 'music', 'sports', 'good-energy']);
+
 // ── GET /venues/search ────────────────────────────────────────────────────────
 const searchSchema = Joi.object({
   q:     Joi.string().min(2).max(100).required(),
@@ -97,6 +102,108 @@ router.get('/search', optionalAuth, async (req, res, next) => {
     }
 
     return res.json({ venues: enriched, query: value.q, total: enriched.length });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ── GET /venues/:id/profile ───────────────────────────────────────────────────
+router.get('/:id/profile', optionalAuth, async (req, res, next) => {
+  try {
+    const venue = await venueService.getVenueById(req.params.id);
+    if (!venue) return res.status(404).json({ error: 'NOT_FOUND', message: 'Venue not found' });
+
+    // Active room
+    const { data: activeRooms } = await supabaseAdmin
+      .from('rooms')
+      .select('id, status, total_members, total_messages, peak_occupancy, activated_at')
+      .eq('venue_id', venue.id)
+      .in('status', ['warming', 'active'])
+      .limit(1);
+    const activeRoom = activeRooms?.[0] || null;
+
+    // Historical rooms for popular times + stats
+    const { data: allRooms } = await supabaseAdmin
+      .from('rooms')
+      .select('activated_at, peak_occupancy, total_messages, total_members')
+      .eq('venue_id', venue.id)
+      .not('activated_at', 'is', null)
+      .order('activated_at', { ascending: false })
+      .limit(200);
+
+    // Popular times — aggregate by hour of day (0–23)
+    const hourBuckets = Array.from({ length: 24 }, () => ({ count: 0, totalOccupancy: 0 }));
+    (allRooms || []).forEach((r) => {
+      const hour = new Date(r.activated_at).getHours();
+      hourBuckets[hour].count++;
+      hourBuckets[hour].totalOccupancy += r.peak_occupancy || 0;
+    });
+    const popularTimes = hourBuckets.map((b, hour) => ({
+      hour,
+      activity: b.count,
+      avgOccupancy: b.count > 0 ? Math.round(b.totalOccupancy / b.count) : 0,
+    }));
+
+    // Stats
+    const totalConversations = (allRooms || []).length;
+    const peakRoom = (allRooms || []).reduce(
+      (max, r) => (!max || (r.peak_occupancy || 0) > (max.peak_occupancy || 0) ? r : max),
+      null
+    );
+    const totalMessages = (allRooms || []).reduce((s, r) => s + (r.total_messages || 0), 0);
+
+    // Current vibe tags from in-memory store
+    const vibeTags = activeRoom ? (vibeTagStore.get(activeRoom.id) || {}) : {};
+
+    return res.json({
+      id: venue.id,
+      name: venue.name,
+      address: [venue.address, venue.city, venue.state].filter(Boolean).join(', '),
+      category: venue.category || 'venue',
+      is_partner: venue.is_partner,
+      welcome_message: venue.welcome_message || null,
+      room: activeRoom
+        ? { id: activeRoom.id, status: activeRoom.status, occupancy: activeRoom.total_members || 0 }
+        : null,
+      popular_times: popularTimes,
+      stats: {
+        total_conversations: totalConversations,
+        peak_occupancy: peakRoom?.peak_occupancy || 0,
+        peak_at: peakRoom?.activated_at || null,
+        total_messages_all_time: totalMessages,
+      },
+      vibe_tags: vibeTags,
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ── POST /venues/:id/vibe-tag ─────────────────────────────────────────────────
+router.post('/:id/vibe-tag', optionalAuth, async (req, res, next) => {
+  try {
+    const { tag } = req.body || {};
+    if (!tag || !VALID_TAGS.has(tag)) {
+      return res.status(400).json({ error: 'INVALID_TAG', message: `Tag must be one of: ${[...VALID_TAGS].join(', ')}` });
+    }
+
+    const { data: rooms } = await supabaseAdmin
+      .from('rooms')
+      .select('id')
+      .eq('venue_id', req.params.id)
+      .in('status', ['warming', 'active'])
+      .limit(1);
+
+    if (!rooms?.[0]) {
+      return res.status(409).json({ error: 'NO_ACTIVE_ROOM', message: 'No active room at this venue' });
+    }
+
+    const roomId = rooms[0].id;
+    const tags = vibeTagStore.get(roomId) || {};
+    tags[tag] = (tags[tag] || 0) + 1;
+    vibeTagStore.set(roomId, tags);
+
+    return res.json({ tags, tag, count: tags[tag] });
   } catch (err) {
     return next(err);
   }

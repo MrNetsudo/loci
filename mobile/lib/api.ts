@@ -88,6 +88,12 @@ export const venues = {
     ),
   vibe: (id: string) =>
     request<{ vibe: string; cached: boolean }>('GET', `/venues/${id}/vibe`),
+  profile: (id: string) =>
+    request<VenueProfile>('GET', `/venues/${id}/profile`),
+  vibeTag: (id: string, tag: string) =>
+    request<{ tags: Record<string, number>; tag: string; count: number }>(
+      'POST', `/venues/${id}/vibe-tag`, { tag }
+    ),
 };
 
 // ── Rooms ────────────────────────────────────────────────
@@ -175,6 +181,24 @@ export interface RoomMember {
   display_name: string;
   is_anonymous: boolean;
   joined_at: string;
+}
+
+export interface VenueProfile {
+  id: string;
+  name: string;
+  address: string;
+  category: string;
+  is_partner: boolean;
+  welcome_message?: string;
+  room: { id: string; status: string; occupancy: number } | null;
+  popular_times: Array<{ hour: number; activity: number; avgOccupancy: number }>;
+  stats: {
+    total_conversations: number;
+    peak_occupancy: number;
+    peak_at: string | null;
+    total_messages_all_time: number;
+  };
+  vibe_tags: Record<string, number>;
 }
 
 export interface PresenceResult {

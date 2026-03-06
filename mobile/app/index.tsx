@@ -219,8 +219,8 @@ export default function HomeScreen() {
   };
 
   const joinVenueRoom = (venue: VenueWithDistance) => {
-    // Navigate to presence check for this venue (will join room on arrival)
-    router.push(`/room/${venue.id}`);
+    // Navigate to venue profile screen first (Yelp-style info before joining)
+    router.push(`/venue/${venue.id}`);
   };
 
   // ── Render: Loading ──────────────────────────────────────
