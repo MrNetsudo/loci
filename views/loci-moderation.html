@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Loci Admin — Moderation</title>
+  <link rel="stylesheet" href="/admin/css/style.css">
+</head>
+<body>
+<div class="app-layout" id="app-layout">
+  <div class="sidebar-overlay"></div>
+  <aside id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon" style="background:linear-gradient(135deg,#6366f1,#06b6d4)">L</div>
+      <div>
+        <div class="brand-text">Loci</div>
+        <div class="brand-sub">Admin Panel</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Loci</div>
+      <a href="/loci" class="nav-item">
+        <span class="nav-icon">📊</span><span class="nav-text">Dashboard</span>
+      </a>
+      <a href="/loci/venues" class="nav-item">
+        <span class="nav-icon">📍</span><span class="nav-text">Venues</span>
+      </a>
+      <a href="/loci/rooms" class="nav-item">
+        <span class="nav-icon">💬</span><span class="nav-text">Rooms</span>
+      </a>
+      <a href="/loci/moderation" class="nav-item active">
+        <span class="nav-icon">🛡</span><span class="nav-text">Moderation</span>
+      </a>
+      <div class="nav-section-label">NetSudo</div>
+      <a href="/admin/dashboard" class="nav-item">
+        <span class="nav-icon">⚙</span><span class="nav-text">Main Admin</span>
+      </a>
+    </nav>
+  </aside>
+  <div class="main-wrapper">
+    <header id="topbar">
+      <div class="topbar-left">
+        <button class="sidebar-toggle" onclick="document.getElementById('app-layout').classList.toggle('sidebar-open')">☰</button>
+        <h1 class="page-title">Moderation</h1>
+      </div>
+      <div class="topbar-right">
+        <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()"></button>
+        <a href="/admin/logout" class="logout-btn">Logout</a>
+      </div>
+    </header>
+    <main class="main-content">
+
+      <!-- Moderation Stats -->
+      <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
+        <div class="stat-card" style="--stat-color:#ef4444">
+          <div class="stat-icon-wrap" style="--stat-bg:rgba(239,68,68,0.12)">🚩</div>
+          <div class="stat-value" id="s-flagged">—</div>
+          <div class="stat-label">Flagged Today</div>
+        </div>
+        <div class="stat-card" style="--stat-color:#f59e0b">
+          <div class="stat-icon-wrap" style="--stat-bg:rgba(245,158,11,0.12)">🤖</div>
+          <div class="stat-value" id="s-blocked">23</div>
+          <div class="stat-label">Auto-blocked</div>
+        </div>
+        <div class="stat-card" style="--stat-color:#6366f1">
+          <div class="stat-icon-wrap" style="--stat-bg:rgba(99,102,241,0.12)">⏳</div>
+          <div class="stat-value" id="s-pending">—</div>
+          <div class="stat-label">Pending Review</div>
+        </div>
+      </div>
+
+      <!-- Flagged Content Queue -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Flagged Content Queue</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Content</th><th>Venue</th><th>Reason</th><th>Time</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="flagged-tbody">
+              <tr><td colspan="5"><div class="skeleton skeleton-row"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+<div id="toast-container"></div>
+<script>
+function toggleTheme(){
+  const t=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme',t);
+  localStorage.setItem('ns-theme',t);
+  document.getElementById('theme-toggle').textContent=t==='dark'?'☀️':'🌙';
+}
+(function(){
+  const t=localStorage.getItem('ns-theme')||'dark';
+  document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('theme-toggle').textContent=t==='dark'?'☀️':'🌙';
+  document.querySelector('.sidebar-overlay').onclick=()=>document.getElementById('app-layout').classList.remove('sidebar-open');
+})();
+
+function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):''}
+function timeAgo(d){if(!d)return'';const m=Math.floor((Date.now()-new Date(d))/60000);if(m<1)return'just now';if(m<60)return m+'m ago';const h=Math.floor(m/60);return h<24?h+'h ago':Math.floor(h/24)+'d ago';}
+function toast(msg,type='success'){
+  const c=document.getElementById('toast-container');
+  const icons={success:'✓',error:'✕'};
+  const el=document.createElement('div');
+  el.className='toast toast-'+type;
+  el.innerHTML='<div class="toast-icon">'+icons[type]+'</div><div class="toast-msg">'+msg+'</div>';
+  c.appendChild(el);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.add('show')));
+  setTimeout(()=>{el.classList.remove('show');setTimeout(()=>el.remove(),350)},3500);
+}
+
+function reasonBadge(r){
+  const colors={spam:'#ef4444',harassment:'#ef4444',nsfw:'#f59e0b',scam:'#ef4444',other:'#6b7280'};
+  const c=colors[r]||'#6b7280';
+  return '<span class="badge" style="background:'+c+'18;color:'+c+';border:1px solid '+c+'30">'+esc(r)+'</span>';
+}
+
+let flagged=[];
+
+function render(){
+  const tb=document.getElementById('flagged-tbody');
+  if(!flagged.length){
+    tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted)">No flagged content — all clear</td></tr>';
+    return;
+  }
+  tb.innerHTML=flagged.map(f=>`<tr id="row-${f.id}">
+    <td style="max-width:280px"><span class="truncate" style="display:block">"${esc(f.snippet)}"</span></td>
+    <td>${esc(f.venue)}</td>
+    <td>${reasonBadge(f.reason)}</td>
+    <td class="td-muted">${timeAgo(f.time)}</td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-success btn-xs" onclick="approve(${f.id})">Approve</button>
+      <button class="btn btn-danger btn-xs" onclick="del(${f.id})">Delete</button>
+      <button class="btn btn-ghost btn-xs" style="color:var(--accent-red)" onclick="ban(${f.id})">Ban</button>
+    </td>
+  </tr>`).join('');
+}
+
+function approve(id){flagged=flagged.filter(f=>f.id!==id);render();updateCounts();toast('Content approved');}
+function del(id){flagged=flagged.filter(f=>f.id!==id);render();updateCounts();toast('Content deleted');}
+function ban(id){flagged=flagged.filter(f=>f.id!==id);render();updateCounts();toast('User banned','error');}
+
+function updateCounts(){
+  document.getElementById('s-pending').textContent=flagged.length;
+}
+
+async function load(){
+  try{
+    const data=await fetch('/api/loci/moderation').then(r=>r.json());
+    flagged=data.flagged||[];
+    document.getElementById('s-flagged').textContent=flagged.length;
+    document.getElementById('s-pending').textContent=flagged.length;
+    render();
+  }catch(e){console.error(e)}
+}
+
+load();
+</script>
+</body>
+</html>

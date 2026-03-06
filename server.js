@@ -717,6 +717,18 @@ function checkWeeklyReport() {
 }
 setInterval(checkWeeklyReport, 60 * 60 * 1000);
 
+// ── Loci Admin Panel ─────────────────────────────────────────────────────────
+function requireAdmin(req,res,next){if(req.session?.user)return next();res.redirect("/login")}
+app.get("/loci",(req,res)=>res.sendFile(path.join(__dirname,"views/loci-admin.html")));
+app.get("/loci/venues",(req,res)=>res.sendFile(path.join(__dirname,"views/loci-venues.html")));
+app.get("/loci/rooms",(req,res)=>res.sendFile(path.join(__dirname,"views/loci-rooms.html")));
+app.get("/loci/moderation",(req,res)=>res.sendFile(path.join(__dirname,"views/loci-moderation.html")));
+app.get("/api/loci/stats",(req,res)=>res.json({venues:142,activeRooms:7,users:1204,messagesToday:3847}));
+app.get("/api/loci/venues",(req,res)=>res.json({venues:[{id:1,name:"The Rusty Nail",category:"bar",city:"New York",radius:100,active:true,partner:false},{id:2,name:"Madison Square Garden",category:"stadium",city:"New York",radius:200,active:true,partner:true}]}));
+app.post("/api/loci/venues",(req,res)=>res.json({ok:true}));
+app.get("/api/loci/rooms/live",(req,res)=>res.json({rooms:[{venue:"The Rusty Nail",status:"active",occupancy:47,started:new Date(Date.now()-3600000).toISOString()},{venue:"MSG",status:"warming",occupancy:12,started:new Date(Date.now()-600000).toISOString()}]}));
+app.get("/api/loci/moderation",(req,res)=>res.json({flagged:[{id:1,snippet:"Hey check out this link...",venue:"The Rusty Nail",reason:"spam",time:new Date().toISOString()}]}));
+
 app.listen(PORT, () => console.log(`✓ NetSudo Admin running on port ${PORT}`));
 
 // ── Resend Email Helper ───────────────────────────────────────────────────────
