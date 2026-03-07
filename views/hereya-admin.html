@@ -5,6 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Hereya Admin — Dashboard</title>
   <link rel="stylesheet" href="/admin/css/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <style>
+    .health-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
+    .health-ok{background:#10b981;box-shadow:0 0 6px #10b981}
+    .health-err{background:#ef4444;box-shadow:0 0 6px #ef4444}
+    .trend{font-size:12px;margin-left:6px;opacity:.7}
+    .trend-up{color:#10b981}
+    .trend-flat{color:#6b7280}
+  </style>
 </head>
 <body>
 <div class="app-layout" id="app-layout">
@@ -19,31 +28,17 @@
     </div>
     <nav class="sidebar-nav">
       <div class="nav-section-label">NetSudo</div>
-      <a href="/admin/dashboard" class="nav-item">
-        <span class="nav-icon">📊</span><span class="nav-text">Dashboard</span>
-      </a>
-      <a href="/admin/pipeline" class="nav-item">
-        <span class="nav-icon">🔀</span><span class="nav-text">Pipeline</span>
-      </a>
-      <a href="/admin/contacts" class="nav-item">
-        <span class="nav-icon">👥</span><span class="nav-text">Contacts</span>
-      </a>
-      <a href="/admin/settings" class="nav-item">
-        <span class="nav-icon">⚙️</span><span class="nav-text">Settings</span>
-      </a>
+      <a href="/admin/dashboard" class="nav-item"><span class="nav-icon">📊</span><span class="nav-text">Dashboard</span></a>
+      <a href="/admin/pipeline" class="nav-item"><span class="nav-icon">🔀</span><span class="nav-text">Pipeline</span></a>
+      <a href="/admin/contacts" class="nav-item"><span class="nav-icon">👥</span><span class="nav-text">Contacts</span></a>
+      <a href="/admin/settings" class="nav-item"><span class="nav-icon">⚙️</span><span class="nav-text">Settings</span></a>
       <div class="nav-section-label">Hereya</div>
-      <a href="/admin/hereya" class="nav-item active">
-        <span class="nav-icon">📊</span><span class="nav-text">Overview</span>
-      </a>
-      <a href="/admin/hereya/venues" class="nav-item">
-        <span class="nav-icon">📍</span><span class="nav-text">Venues</span>
-      </a>
-      <a href="/admin/hereya/rooms" class="nav-item">
-        <span class="nav-icon">💬</span><span class="nav-text">Rooms</span>
-      </a>
-      <a href="/admin/hereya/moderation" class="nav-item">
-        <span class="nav-icon">🛡</span><span class="nav-text">Moderation</span>
-      </a>
+      <a href="/admin/hereya" class="nav-item active"><span class="nav-icon">📊</span><span class="nav-text">Overview</span></a>
+      <a href="/admin/hereya/venues" class="nav-item"><span class="nav-icon">📍</span><span class="nav-text">Venues</span></a>
+      <a href="/admin/hereya/users" class="nav-item"><span class="nav-icon">👤</span><span class="nav-text">Users</span></a>
+      <a href="/admin/hereya/rooms" class="nav-item"><span class="nav-icon">💬</span><span class="nav-text">Rooms</span></a>
+      <a href="/admin/hereya/moderation" class="nav-item"><span class="nav-icon">🛡</span><span class="nav-text">Moderation</span></a>
+      <a href="/admin/hereya/waitlist" class="nav-item"><span class="nav-icon">📋</span><span class="nav-text">Waitlist</span></a>
     </nav>
   </aside>
   <div class="main-wrapper">
@@ -51,6 +46,7 @@
       <div class="topbar-left">
         <button class="sidebar-toggle" onclick="document.getElementById('app-layout').classList.toggle('sidebar-open')">☰</button>
         <h1 class="page-title">Hereya Dashboard</h1>
+        <span id="health-indicator" style="margin-left:12px;font-size:12px;display:flex;align-items:center"><span class="health-dot health-err"></span>checking…</span>
       </div>
       <div class="topbar-right">
         <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()"></button>
@@ -58,9 +54,8 @@
       </div>
     </header>
     <main class="main-content">
-
       <!-- Stats -->
-      <div class="stats-grid">
+      <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
         <div class="stat-card" style="--stat-color:#6366f1">
           <div class="stat-icon-wrap" style="--stat-bg:rgba(99,102,241,0.12)">📍</div>
           <div class="stat-value" id="s-venues"><span class="skeleton" style="width:50px;height:32px;display:inline-block"></span></div>
@@ -74,45 +69,63 @@
         <div class="stat-card" style="--stat-color:#10b981">
           <div class="stat-icon-wrap" style="--stat-bg:rgba(16,185,129,0.12)">👥</div>
           <div class="stat-value" id="s-users"><span class="skeleton" style="width:50px;height:32px;display:inline-block"></span></div>
-          <div class="stat-label">Users</div>
+          <div class="stat-label">Total Users</div>
         </div>
         <div class="stat-card" style="--stat-color:#f59e0b">
           <div class="stat-icon-wrap" style="--stat-bg:rgba(245,158,11,0.12)">✉</div>
           <div class="stat-value" id="s-msgs"><span class="skeleton" style="width:50px;height:32px;display:inline-block"></span></div>
           <div class="stat-label">Messages Today</div>
         </div>
+        <div class="stat-card" style="--stat-color:#8b5cf6">
+          <div class="stat-icon-wrap" style="--stat-bg:rgba(139,92,246,0.12)">🆕</div>
+          <div class="stat-value" id="s-new"><span class="skeleton" style="width:50px;height:32px;display:inline-block"></span></div>
+          <div class="stat-label">New Users This Week</div>
+        </div>
+        <div class="stat-card" style="--stat-color:#ec4899">
+          <div class="stat-icon-wrap" style="--stat-bg:rgba(236,72,153,0.12)">📋</div>
+          <div class="stat-value" id="s-waitlist"><span class="skeleton" style="width:50px;height:32px;display:inline-block"></span></div>
+          <div class="stat-label">Waitlist Signups</div>
+        </div>
       </div>
 
-      <!-- Live Room Feed + Quick Actions -->
-      <div class="grid-3-1">
+      <!-- Growth Chart + Quick Actions -->
+      <div class="grid-3-1" style="margin-top:24px">
         <div class="card">
-          <div class="card-header">
-            <span class="card-title">Live Room Feed</span>
-            <a href="/admin/hereya/rooms" class="btn btn-ghost btn-sm">All rooms →</a>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr><th>Venue</th><th>Status</th><th>Occupancy</th><th>Started</th></tr>
-              </thead>
-              <tbody id="live-tbody">
-                <tr><td colspan="4"><div class="skeleton skeleton-row"></div></td></tr>
-                <tr><td colspan="4"><div class="skeleton skeleton-row"></div></td></tr>
-              </tbody>
-            </table>
+          <div class="card-header"><span class="card-title">Growth — Last 30 Days</span></div>
+          <div class="card-body" style="padding:16px">
+            <canvas id="growth-chart" height="220"></canvas>
           </div>
         </div>
-
         <div class="card">
           <div class="card-header"><span class="card-title">Quick Actions</span></div>
           <div class="card-body" style="display:flex;flex-direction:column;gap:10px">
-            <a href="/admin/hereya/venues" class="btn btn-primary" style="justify-content:center">+ Add Venue</a>
+            <a href="/admin/hereya/venues" class="btn btn-primary" style="justify-content:center">Manage Venues</a>
+            <a href="/admin/hereya/users" class="btn btn-secondary" style="justify-content:center">View Users</a>
             <a href="/admin/hereya/rooms" class="btn btn-secondary" style="justify-content:center">View Live Rooms</a>
             <a href="/admin/hereya/moderation" class="btn btn-secondary" style="justify-content:center">Moderation Queue</a>
+            <a href="/admin/hereya/waitlist" class="btn btn-secondary" style="justify-content:center">Waitlist</a>
           </div>
         </div>
       </div>
 
+      <!-- Live Room Feed -->
+      <div class="card" style="margin-top:24px">
+        <div class="card-header">
+          <span class="card-title">Live Room Feed</span>
+          <a href="/admin/hereya/rooms" class="btn btn-ghost btn-sm">All rooms →</a>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Venue</th><th>City</th><th>Status</th><th>Occupancy</th><th>Started</th><th>Messages</th></tr>
+            </thead>
+            <tbody id="live-tbody">
+              <tr><td colspan="6"><div class="skeleton skeleton-row"></div></td></tr>
+              <tr><td colspan="6"><div class="skeleton skeleton-row"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </main>
   </div>
 </div>
@@ -133,34 +146,87 @@ function toggleTheme(){
 
 function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):''}
 function timeAgo(d){if(!d)return'';const m=Math.floor((Date.now()-new Date(d))/60000);if(m<1)return'just now';if(m<60)return m+'m ago';const h=Math.floor(m/60);return h<24?h+'h ago':Math.floor(h/24)+'d ago';}
-
 function statusBadge(s){
   const colors={active:'#10b981',warming:'#f59e0b',cooling:'#06b6d4',closed:'#6b7280'};
   const c=colors[s]||'#6b7280';
   return '<span class="badge" style="background:'+c+'18;color:'+c+';border:1px solid '+c+'30">'+esc(s)+'</span>';
 }
+function trendSpan(v){return v>0?'<span class="trend trend-up">↑ '+v+'</span>':'<span class="trend trend-flat">→</span>';}
 
-async function load(){
+let growthChart=null;
+
+async function loadStats(){
   try{
     const stats=await fetch('/admin/api/hereya/stats').then(r=>r.json());
-    document.getElementById('s-venues').textContent=stats.venues.toLocaleString();
-    document.getElementById('s-rooms').textContent=stats.activeRooms;
-    document.getElementById('s-users').textContent=stats.users.toLocaleString();
-    document.getElementById('s-msgs').textContent=stats.messagesToday.toLocaleString();
+    document.getElementById('s-venues').innerHTML=stats.venues.toLocaleString()+trendSpan(0);
+    document.getElementById('s-rooms').innerHTML=stats.activeRooms+trendSpan(stats.activeRooms);
+    document.getElementById('s-users').innerHTML=stats.users.toLocaleString()+trendSpan(stats.newUsersThisWeek);
+    document.getElementById('s-msgs').innerHTML=stats.messagesToday.toLocaleString()+trendSpan(stats.messagesToday);
+    document.getElementById('s-new').innerHTML=stats.newUsersThisWeek.toLocaleString()+trendSpan(stats.newUsersThisWeek);
+    document.getElementById('s-waitlist').innerHTML=stats.waitlist.toLocaleString()+trendSpan(0);
   }catch(e){console.error(e)}
+}
+
+async function loadRooms(){
   try{
     const data=await fetch('/admin/api/hereya/rooms/live').then(r=>r.json());
     const tb=document.getElementById('live-tbody');
-    if(!data.rooms.length){tb.innerHTML='<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text-muted)">No active rooms</td></tr>';return;}
+    if(!data.rooms.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted)">No active rooms right now</td></tr>';return;}
     tb.innerHTML=data.rooms.map(r=>`<tr>
       <td><strong>${esc(r.venue)}</strong></td>
+      <td class="td-muted">${esc(r.city)}</td>
       <td>${statusBadge(r.status)}</td>
       <td>${r.occupancy}</td>
       <td class="td-muted">${timeAgo(r.started)}</td>
+      <td>${r.messages}</td>
     </tr>`).join('');
   }catch(e){console.error(e)}
 }
-load();
+
+async function loadGrowth(){
+  try{
+    const data=await fetch('/admin/api/hereya/growth').then(r=>r.json());
+    const labels=data.days.map(d=>d.date.slice(5));
+    const userData=data.days.map(d=>d.users);
+    const roomData=data.days.map(d=>d.rooms);
+    const ctx=document.getElementById('growth-chart').getContext('2d');
+    if(growthChart)growthChart.destroy();
+    const gridColor=getComputedStyle(document.documentElement).getPropertyValue('--border')||'rgba(255,255,255,0.06)';
+    const textColor=getComputedStyle(document.documentElement).getPropertyValue('--text-secondary')||'#94a3b8';
+    growthChart=new Chart(ctx,{
+      type:'line',
+      data:{
+        labels,
+        datasets:[
+          {label:'New Users',data:userData,borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,0.1)',fill:true,tension:0.3,yAxisID:'y'},
+          {label:'Rooms Opened',data:roomData,borderColor:'#06b6d4',backgroundColor:'rgba(6,182,212,0.1)',fill:true,tension:0.3,yAxisID:'y1'},
+        ]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:textColor,font:{size:11}}}},
+        scales:{
+          x:{ticks:{color:textColor,font:{size:10}},grid:{color:gridColor}},
+          y:{position:'left',ticks:{color:'#6366f1',font:{size:10}},grid:{color:gridColor},title:{display:true,text:'Users',color:'#6366f1'}},
+          y1:{position:'right',ticks:{color:'#06b6d4',font:{size:10}},grid:{drawOnChartArea:false},title:{display:true,text:'Rooms',color:'#06b6d4'}},
+        }
+      }
+    });
+  }catch(e){console.error(e)}
+}
+
+async function checkHealth(){
+  const el=document.getElementById('health-indicator');
+  try{
+    const r=await fetch('/admin/api/hereya/stats',{signal:AbortSignal.timeout(5000)});
+    if(r.ok){el.innerHTML='<span class="health-dot health-ok"></span>Supabase connected';}
+    else{el.innerHTML='<span class="health-dot health-err"></span>API error';}
+  }catch(e){el.innerHTML='<span class="health-dot health-err"></span>Offline';}
+}
+
+async function loadAll(){await Promise.all([loadStats(),loadRooms(),loadGrowth(),checkHealth()]);}
+loadAll();
+setInterval(loadAll,30000);
 </script>
 </body>
 </html>

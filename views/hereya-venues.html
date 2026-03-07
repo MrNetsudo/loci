@@ -5,6 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Hereya Admin — Venues</title>
   <link rel="stylesheet" href="/admin/css/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <style>
+    .filter-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+    .filter-bar input,.filter-bar select{height:36px;font-size:13px}
+    .partner-pill{background:rgba(139,92,246,0.15);color:#8b5cf6;border:1px solid rgba(139,92,246,0.3);padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600}
+    .toggle-btn{cursor:pointer;background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px;color:var(--text-secondary);transition:all .2s}
+    .toggle-btn:hover{border-color:var(--accent);color:var(--accent)}
+    .toggle-btn.on{background:rgba(139,92,246,0.15);color:#8b5cf6;border-color:#8b5cf6}
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;display:none;align-items:center;justify-content:center}
+    .modal-overlay.show{display:flex}
+    .modal{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:24px;width:400px;max-width:90vw}
+    .modal h3{margin:0 0 16px;font-size:16px}
+    .venue-count{font-size:13px;color:var(--text-secondary);margin-left:8px}
+    th.sortable{cursor:pointer;user-select:none}
+    th.sortable:hover{color:var(--accent)}
+    th.sortable.asc::after{content:'▲';margin-left:4px;opacity:.4}
+    th.sortable.desc::after{content:'▼';margin-left:4px;opacity:.4}
+  </style>
 </head>
 <body>
 <div class="app-layout" id="app-layout">
@@ -12,45 +30,28 @@
   <aside id="sidebar">
     <div class="sidebar-brand">
       <div class="brand-icon" style="background:linear-gradient(135deg,#6366f1,#06b6d4)">H</div>
-      <div>
-        <div class="brand-text">NetSudo</div>
-        <div class="brand-sub">Admin Panel</div>
-      </div>
+      <div><div class="brand-text">NetSudo</div><div class="brand-sub">Admin Panel</div></div>
     </div>
     <nav class="sidebar-nav">
       <div class="nav-section-label">NetSudo</div>
-      <a href="/admin/dashboard" class="nav-item">
-        <span class="nav-icon">📊</span><span class="nav-text">Dashboard</span>
-      </a>
-      <a href="/admin/pipeline" class="nav-item">
-        <span class="nav-icon">🔀</span><span class="nav-text">Pipeline</span>
-      </a>
-      <a href="/admin/contacts" class="nav-item">
-        <span class="nav-icon">👥</span><span class="nav-text">Contacts</span>
-      </a>
-      <a href="/admin/settings" class="nav-item">
-        <span class="nav-icon">⚙️</span><span class="nav-text">Settings</span>
-      </a>
+      <a href="/admin/dashboard" class="nav-item"><span class="nav-icon">📊</span><span class="nav-text">Dashboard</span></a>
+      <a href="/admin/pipeline" class="nav-item"><span class="nav-icon">🔀</span><span class="nav-text">Pipeline</span></a>
+      <a href="/admin/contacts" class="nav-item"><span class="nav-icon">👥</span><span class="nav-text">Contacts</span></a>
+      <a href="/admin/settings" class="nav-item"><span class="nav-icon">⚙️</span><span class="nav-text">Settings</span></a>
       <div class="nav-section-label">Hereya</div>
-      <a href="/admin/hereya" class="nav-item">
-        <span class="nav-icon">📊</span><span class="nav-text">Overview</span>
-      </a>
-      <a href="/admin/hereya/venues" class="nav-item active">
-        <span class="nav-icon">📍</span><span class="nav-text">Venues</span>
-      </a>
-      <a href="/admin/hereya/rooms" class="nav-item">
-        <span class="nav-icon">💬</span><span class="nav-text">Rooms</span>
-      </a>
-      <a href="/admin/hereya/moderation" class="nav-item">
-        <span class="nav-icon">🛡</span><span class="nav-text">Moderation</span>
-      </a>
+      <a href="/admin/hereya" class="nav-item"><span class="nav-icon">📊</span><span class="nav-text">Overview</span></a>
+      <a href="/admin/hereya/venues" class="nav-item active"><span class="nav-icon">📍</span><span class="nav-text">Venues</span></a>
+      <a href="/admin/hereya/users" class="nav-item"><span class="nav-icon">👤</span><span class="nav-text">Users</span></a>
+      <a href="/admin/hereya/rooms" class="nav-item"><span class="nav-icon">💬</span><span class="nav-text">Rooms</span></a>
+      <a href="/admin/hereya/moderation" class="nav-item"><span class="nav-icon">🛡</span><span class="nav-text">Moderation</span></a>
+      <a href="/admin/hereya/waitlist" class="nav-item"><span class="nav-icon">📋</span><span class="nav-text">Waitlist</span></a>
     </nav>
   </aside>
   <div class="main-wrapper">
     <header id="topbar">
       <div class="topbar-left">
         <button class="sidebar-toggle" onclick="document.getElementById('app-layout').classList.toggle('sidebar-open')">☰</button>
-        <h1 class="page-title">Venues</h1>
+        <h1 class="page-title">Venues <span class="venue-count" id="venue-count"></span></h1>
       </div>
       <div class="topbar-right">
         <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()"></button>
@@ -59,53 +60,43 @@
     </header>
     <main class="main-content">
 
-      <!-- Add Venue Form -->
-      <div class="card mb-24">
-        <div class="card-header"><span class="card-title">Add Venue</span></div>
-        <div class="card-body">
-          <form id="add-form" class="form-row" style="grid-template-columns:1fr 1fr 1fr 120px auto;align-items:end;gap:10px">
-            <div class="form-group" style="margin:0">
-              <label class="form-label">Name</label>
-              <input class="form-control" name="name" placeholder="Venue name" required>
-            </div>
-            <div class="form-group" style="margin:0">
-              <label class="form-label">Category</label>
-              <select class="form-control" name="category">
-                <option value="bar">Bar</option>
-                <option value="restaurant">Restaurant</option>
-                <option value="stadium">Stadium</option>
-                <option value="cafe">Cafe</option>
-                <option value="club">Club</option>
-                <option value="other">Other</option>
+      <!-- Filters + Category Chart -->
+      <div class="grid-3-1" style="margin-bottom:24px">
+        <div class="card">
+          <div class="card-header"><span class="card-title">Filters</span></div>
+          <div class="card-body">
+            <div class="filter-bar">
+              <input class="form-control" id="f-search" placeholder="Search venues..." style="flex:1;min-width:160px">
+              <select class="form-control" id="f-category" style="width:140px"><option value="">All Categories</option></select>
+              <select class="form-control" id="f-city" style="width:140px"><option value="">All Cities</option></select>
+              <select class="form-control" id="f-partner" style="width:140px">
+                <option value="">All Status</option>
+                <option value="true">Partners Only</option>
+                <option value="false">Non-Partners</option>
               </select>
             </div>
-            <div class="form-group" style="margin:0">
-              <label class="form-label">City</label>
-              <input class="form-control" name="city" placeholder="City" required>
-            </div>
-            <div class="form-group" style="margin:0">
-              <label class="form-label">Radius (m)</label>
-              <input class="form-control" name="radius" type="number" value="100" min="10" max="1000">
-            </div>
-            <button class="btn btn-primary" type="submit" style="height:38px">Add</button>
-          </form>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Categories</span></div>
+          <div class="card-body" style="padding:8px 12px;display:flex;align-items:center;justify-content:center">
+            <canvas id="cat-chart" height="120" style="max-height:120px"></canvas>
+          </div>
         </div>
       </div>
 
       <!-- Venue Table -->
       <div class="card">
-        <div class="card-header">
-          <span class="card-title">All Venues</span>
-        </div>
+        <div class="card-header"><span class="card-title">All Venues</span></div>
         <div class="table-wrap">
-          <table>
+          <table id="venues-table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Category</th>
-                <th>City</th>
-                <th>Geofence Radius</th>
-                <th>Status</th>
+                <th class="sortable" data-col="name">Name</th>
+                <th class="sortable" data-col="category">Category</th>
+                <th class="sortable" data-col="city">City</th>
+                <th>State</th>
+                <th class="sortable" data-col="geofence_radius_m">Radius</th>
                 <th>Partner</th>
                 <th>Actions</th>
               </tr>
@@ -116,93 +107,145 @@
             </tbody>
           </table>
         </div>
+        <div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border)">
+          <span id="page-info" style="font-size:12px;color:var(--text-secondary)"></span>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-ghost btn-sm" id="prev-btn" onclick="changePage(-1)" disabled>← Prev</button>
+            <button class="btn btn-ghost btn-sm" id="next-btn" onclick="changePage(1)">Next →</button>
+          </div>
+        </div>
       </div>
-
     </main>
   </div>
 </div>
+
+<!-- Edit Geofence Modal -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal">
+    <h3>Edit Geofence Radius</h3>
+    <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px" id="edit-venue-name"></p>
+    <div class="form-group" style="margin:0 0 16px">
+      <label class="form-label">Radius (meters)</label>
+      <input class="form-control" id="edit-radius" type="number" min="10" max="5000">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveGeofence()">Save</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast-container"></div>
 <script>
-function toggleTheme(){
-  const t=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
-  document.documentElement.setAttribute('data-theme',t);
-  localStorage.setItem('ns-theme',t);
-  document.getElementById('theme-toggle').textContent=t==='dark'?'☀️':'🌙';
-}
-(function(){
-  const t=localStorage.getItem('ns-theme')||'dark';
-  document.documentElement.setAttribute('data-theme',t);
-  document.getElementById('theme-toggle').textContent=t==='dark'?'☀️':'🌙';
-  document.querySelector('.sidebar-overlay').onclick=()=>document.getElementById('app-layout').classList.remove('sidebar-open');
-})();
-
+function toggleTheme(){const t=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',t);localStorage.setItem('ns-theme',t);document.getElementById('theme-toggle').textContent=t==='dark'?'☀️':'🌙';}
+(function(){const t=localStorage.getItem('ns-theme')||'dark';document.documentElement.setAttribute('data-theme',t);document.getElementById('theme-toggle').textContent=t==='dark'?'☀️':'🌙';document.querySelector('.sidebar-overlay').onclick=()=>document.getElementById('app-layout').classList.remove('sidebar-open');})();
 function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):''}
-function toast(msg,type='success'){
-  const c=document.getElementById('toast-container');
-  const icons={success:'✓',error:'✕'};
-  const el=document.createElement('div');
-  el.className='toast toast-'+type;
-  el.innerHTML='<div class="toast-icon">'+icons[type]+'</div><div class="toast-msg">'+msg+'</div>';
-  c.appendChild(el);
-  requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.add('show')));
-  setTimeout(()=>{el.classList.remove('show');setTimeout(()=>el.remove(),350)},3500);
-}
+function toast(msg,type='success'){const c=document.getElementById('toast-container');const el=document.createElement('div');el.className='toast toast-'+type;el.innerHTML='<div class="toast-icon">'+(type==='success'?'✓':'✕')+'</div><div class="toast-msg">'+msg+'</div>';c.appendChild(el);requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.add('show')));setTimeout(()=>{el.classList.remove('show');setTimeout(()=>el.remove(),350)},3500);}
 
-let venues=[];
+let allVenues=[], page=1, total=0, sortCol='name', sortDir='asc', catChart=null, editingId=null;
+
+function buildQuery(){
+  const p=new URLSearchParams();
+  const s=document.getElementById('f-search').value.trim();
+  const cat=document.getElementById('f-category').value;
+  const city=document.getElementById('f-city').value;
+  const partner=document.getElementById('f-partner').value;
+  if(s)p.set('search',s);if(cat)p.set('category',cat);if(city)p.set('city',city);if(partner)p.set('partner',partner);
+  p.set('page',page);
+  return p.toString();
+}
 
 function render(){
   const tb=document.getElementById('venues-tbody');
-  if(!venues.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted)">No venues</td></tr>';return;}
-  tb.innerHTML=venues.map(v=>{
-    const statusColor=v.active?'#10b981':'#6b7280';
-    const statusLabel=v.active?'Active':'Inactive';
-    const partnerColor=v.partner?'#f59e0b':'#6b7280';
-    return `<tr>
-      <td><strong>${esc(v.name)}</strong></td>
-      <td style="text-transform:capitalize">${esc(v.category)}</td>
-      <td>${esc(v.city)}</td>
-      <td class="td-mono">${v.radius}m</td>
-      <td><span class="badge" style="background:${statusColor}18;color:${statusColor};border:1px solid ${statusColor}30">${statusLabel}</span></td>
-      <td>${v.partner?'<span class="badge" style="background:#f59e0b18;color:#f59e0b;border:1px solid #f59e0b30">Partner</span>':'<span class="td-muted">—</span>'}</td>
-      <td style="white-space:nowrap">
-        <button class="btn btn-ghost btn-xs" onclick="toggleStatus(${v.id})">${v.active?'Disable':'Enable'}</button>
-        <button class="btn btn-ghost btn-xs" onclick="togglePartner(${v.id})">${v.partner?'Remove Partner':'Make Partner'}</button>
-      </td>
-    </tr>`;
-  }).join('');
+  if(!allVenues.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted)">No venues found</td></tr>';return;}
+  const sorted=[...allVenues].sort((a,b)=>{
+    let va=a[sortCol]||'',vb=b[sortCol]||'';
+    if(typeof va==='number')return sortDir==='asc'?va-vb:vb-va;
+    if(typeof va==='string')va=va.toLowerCase();if(typeof vb==='string')vb=vb.toLowerCase();
+    if(va<vb)return sortDir==='asc'?-1:1;if(va>vb)return sortDir==='asc'?1:-1;return 0;
+  });
+  tb.innerHTML=sorted.map(v=>`<tr>
+    <td><strong>${esc(v.name)}</strong></td>
+    <td style="text-transform:capitalize">${esc(v.category)}</td>
+    <td>${esc(v.city)}</td>
+    <td>${esc(v.state||'')}</td>
+    <td class="td-mono">${v.geofence_radius_m||100}m</td>
+    <td>${v.is_partner?'<span class="partner-pill">PARTNER</span>':'<span class="td-muted">—</span>'}</td>
+    <td style="white-space:nowrap">
+      <button class="toggle-btn ${v.is_partner?'on':''}" onclick="togglePartner('${v.id}')">${v.is_partner?'Remove Partner':'Make Partner'}</button>
+      <button class="btn btn-ghost btn-xs" onclick="openEdit('${v.id}','${esc(v.name)}',${v.geofence_radius_m||100})">Edit</button>
+    </td>
+  </tr>`).join('');
+  document.querySelectorAll('th.sortable').forEach(th=>{th.classList.remove('asc','desc');if(th.dataset.col===sortCol)th.classList.add(sortDir);});
 }
 
-function toggleStatus(id){
-  const v=venues.find(x=>x.id===id);
-  if(v){v.active=!v.active;render();toast(v.name+(v.active?' enabled':' disabled'));}
+function updatePageInfo(){
+  document.getElementById('venue-count').textContent=`(Showing ${allVenues.length} of ${total})`;
+  document.getElementById('page-info').textContent=`Page ${page}`;
+  document.getElementById('prev-btn').disabled=page<=1;
+  document.getElementById('next-btn').disabled=allVenues.length<50;
 }
-function togglePartner(id){
-  const v=venues.find(x=>x.id===id);
-  if(v){v.partner=!v.partner;render();toast(v.name+(v.partner?' marked as partner':' partner removed'));}
-}
+
+function changePage(d){page=Math.max(1,page+d);load();}
 
 async function load(){
   try{
-    const data=await fetch('/admin/api/hereya/venues').then(r=>r.json());
-    venues=data.venues||[];
-    render();
-  }catch(e){console.error(e)}
+    const data=await fetch('/admin/api/hereya/venues?'+buildQuery()).then(r=>r.json());
+    allVenues=data.venues||[];
+    total=data.total||allVenues.length;
+    render();updatePageInfo();buildFilters(allVenues);buildCatChart(allVenues);
+  }catch(e){console.error(e);}
 }
 
-document.getElementById('add-form').onsubmit=async function(e){
-  e.preventDefault();
-  const fd=new FormData(this);
-  const body={name:fd.get('name'),category:fd.get('category'),city:fd.get('city'),radius:parseInt(fd.get('radius'))||100};
+function buildFilters(venues){
+  const cats=new Set(),cities=new Set();
+  venues.forEach(v=>{if(v.category)cats.add(v.category);if(v.city)cities.add(v.city);});
+  const catSel=document.getElementById('f-category');const curCat=catSel.value;
+  catSel.innerHTML='<option value="">All Categories</option>'+[...cats].sort().map(c=>`<option value="${esc(c)}" ${c===curCat?'selected':''}>${esc(c)}</option>`).join('');
+  const citySel=document.getElementById('f-city');const curCity=citySel.value;
+  citySel.innerHTML='<option value="">All Cities</option>'+[...cities].sort().map(c=>`<option value="${esc(c)}" ${c===curCity?'selected':''}>${esc(c)}</option>`).join('');
+}
+
+function buildCatChart(venues){
+  const counts={};
+  venues.forEach(v=>{const c=v.category||'other';counts[c]=(counts[c]||0)+1;});
+  const labels=Object.keys(counts);const data=Object.values(counts);
+  const colors=['#6366f1','#06b6d4','#10b981','#f59e0b','#ef4444','#ec4899','#8b5cf6','#14b8a6'];
+  const ctx=document.getElementById('cat-chart').getContext('2d');
+  if(catChart)catChart.destroy();
+  catChart=new Chart(ctx,{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:colors.slice(0,labels.length)}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:getComputedStyle(document.documentElement).getPropertyValue('--text-secondary')||'#94a3b8',font:{size:10},boxWidth:10}}}}});
+}
+
+async function togglePartner(id){
   try{
-    const res=await fetch('/admin/api/hereya/venues',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    const data=await res.json();
-    if(data.venue){venues.push({id:data.venue.id,name:body.name,category:body.category,city:body.city,radius:body.radius,active:true,partner:false});}
-    else{venues.push({id:Date.now(),name:body.name,category:body.category,city:body.city,radius:body.radius,active:true,partner:false});}
-    render();
-    this.reset();
-    toast('Venue added');
-  }catch(e){toast('Failed to add venue','error')}
-};
+    const r=await fetch('/admin/api/hereya/venues/'+id+'/partner',{method:'PATCH'});
+    const d=await r.json();
+    if(d.ok){const v=allVenues.find(x=>x.id===id);if(v)v.is_partner=d.is_partner;render();toast(d.is_partner?'Partner added':'Partner removed');}
+  }catch(e){toast('Failed','error');}
+}
+
+function openEdit(id,name,radius){editingId=id;document.getElementById('edit-venue-name').textContent=name;document.getElementById('edit-radius').value=radius;document.getElementById('edit-modal').classList.add('show');}
+function closeModal(){document.getElementById('edit-modal').classList.remove('show');editingId=null;}
+async function saveGeofence(){
+  const radius=parseInt(document.getElementById('edit-radius').value);
+  if(!radius||radius<10){toast('Radius must be >= 10m','error');return;}
+  try{
+    await fetch('/admin/api/hereya/venues/'+editingId+'/geofence',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({geofence_radius_m:radius})});
+    const v=allVenues.find(x=>x.id===editingId);if(v)v.geofence_radius_m=radius;
+    render();closeModal();toast('Geofence updated');
+  }catch(e){toast('Failed','error');}
+}
+
+document.querySelectorAll('th.sortable').forEach(th=>{
+  th.onclick=()=>{if(sortCol===th.dataset.col){sortDir=sortDir==='asc'?'desc':'asc';}else{sortCol=th.dataset.col;sortDir='asc';}render();};
+});
+
+let searchTimer;
+document.getElementById('f-search').oninput=()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>{page=1;load();},300);};
+document.getElementById('f-category').onchange=()=>{page=1;load();};
+document.getElementById('f-city').onchange=()=>{page=1;load();};
+document.getElementById('f-partner').onchange=()=>{page=1;load();};
+document.getElementById('edit-modal').onclick=e=>{if(e.target===document.getElementById('edit-modal'))closeModal();};
 
 load();
 </script>

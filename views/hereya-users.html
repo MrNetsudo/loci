@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hereya Admin — Users</title>
+  <link rel="stylesheet" href="/admin/css/style.css">
+  <style>
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;display:none;align-items:center;justify-content:center}
+    .modal-overlay.show{display:flex}
+    .modal{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:24px;width:400px;max-width:90vw}
+    .modal h3{margin:0 0 16px;font-size:16px}
+    .anon-badge{background:rgba(245,158,11,0.15);color:#f59e0b;border:1px solid rgba(245,158,11,0.3);padding:2px 8px;border-radius:10px;font-size:11px}
+    th.sortable{cursor:pointer;user-select:none}
+    th.sortable:hover{color:var(--accent)}
+    th.sortable.asc::after{content:'▲';margin-left:4px;opacity:.4}
+    th.sortable.desc::after{content:'▼';margin-left:4px;opacity:.4}
+  </style>
+</head>
+<body>
+<div class="app-layout" id="app-layout">
+  <div class="sidebar-overlay"></div>
+  <aside id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon" style="background:linear-gradient(135deg,#6366f1,#06b6d4)">H</div>
+      <div><div class="brand-text">NetSudo</div><div class="brand-sub">Admin Panel</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">NetSudo</div>
+      <a href="/admin/dashboard" class="nav-item"><span class="nav-icon">📊</span><span class="nav-text">Dashboard</span></a>
+      <a href="/admin/pipeline" class="nav-item"><span class="nav-icon">🔀</span><span class="nav-text">Pipeline</span></a>
+      <a href="/admin/contacts" class="nav-item"><span class="nav-icon">👥</span><span class="nav-text">Contacts</span></a>
+      <a href="/admin/settings" class="nav-item"><span class="nav-icon">⚙️</span><span class="nav-text">Settings</span></a>
+      <div class="nav-section-label">Hereya</div>
+      <a href="/admin/hereya" class="nav-item"><span class="nav-icon">📊</span><span class="nav-text">Overview</span></a>
+      <a href="/admin/hereya/venues" class="nav-item"><span class="nav-icon">📍</span><span class="nav-text">Venues</span></a>
+      <a href="/admin/hereya/users" class="nav-item active"><span class="nav-icon">👤</span><span class="nav-text">Users</span></a>
+      <a href="/admin/hereya/rooms" class="nav-item"><span class="nav-icon">💬</span><span class="nav-text">Rooms</span></a>
+      <a href="/admin/hereya/moderation" class="nav-item"><span class="nav-icon">🛡</span><span class="nav-text">Moderation</span></a>
+      <a href="/admin/hereya/waitlist" class="nav-item"><span class="nav-icon">📋</span><span class="nav-text">Waitlist</span></a>
+    </nav>
+  </aside>
+  <div class="main-wrapper">
+    <header id="topbar">
+      <div class="topbar-left">
+        <button class="sidebar-toggle" onclick="document.getElementById('app-layout').classList.toggle('sidebar-open')">☰</button>
+        <h1 class="page-title">Users</h1>
+      </div>
+      <div class="topbar-right">
+        <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()"></button>
+        <a href="/admin/logout" class="logout-btn">Logout</a>
+      </div>
+    </header>
+    <main class="main-content">
+
+      <!-- Stats Strip -->
+      <div class="stats-grid" style="grid-template-columns:repeat(4,1fr)">
+        <div class="stat-card" style="--stat-color:#6366f1">
+          <div class="stat-icon-wrap" style="--stat-bg:rgba(99,102,241,0.12)">👥</div>
+          <div class="stat-value" id="s-total"><span class="skeleton" style="width:40px;height:28px;display:inline-block"></span></div>
+          <div class="stat-label">Total Users</div>
+        </div>
+        <div class="stat-card" style="--stat-color:#f59e0b">
+          <div class="stat-icon-wrap" style="--stat-bg:rgba(245,158,11,0.12)">👻</div>
+          <div class="stat-value" id="s-anon"><span class="skeleton" style="width:40px;height:28px;display:inline-block"></span></div>
+          <div class="stat-label">Anonymous Users</div>
+        </div>
+        <div class="stat-card" style="--stat-color:#10b981">
+          <div class="stat-icon-wrap" style="--stat-bg:rgba(16,185,129,0.12)">🏷</div>
+          <div class="stat-value" id="s-named"><span class="skeleton" style="width:40px;height:28px;display:inline-block"></span></div>
+          <div class="stat-label">Named Users</div>
+        </div>
+        <div class="stat-card" style="--stat-color:#8b5cf6">
+          <div class="stat-icon-wrap" style="--stat-bg:rgba(139,92,246,0.12)">🆕</div>
+          <div class="stat-value" id="s-new"><span class="skeleton" style="width:40px;height:28px;display:inline-block"></span></div>
+          <div class="stat-label">New This Week</div>
+        </div>
+      </div>
+
+      <!-- Users Table -->
+      <div class="card" style="margin-top:24px">
+        <div class="card-header"><span class="card-title">All Users</span></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th class="sortable" data-col="display_name">Display Name</th>
+                <th>Anonymous?</th>
+                <th class="sortable" data-col="created_at">Joined</th>
+                <th class="sortable" data-col="rooms_joined">Rooms Joined</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="users-tbody">
+              <tr><td colspan="5"><div class="skeleton skeleton-row"></div></td></tr>
+              <tr><td colspan="5"><div class="skeleton skeleton-row"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- Suspend Confirmation Modal -->
+<div class="modal-overlay" id="suspend-modal">
+  <div class="modal">
+    <h3>Suspend User</h3>
+    <p style="font-size:13px;color:var(--text-secondary);margin:0 0 16px">Are you sure you want to suspend <strong id="suspend-name"></strong>? This will anonymize their profile.</p>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeSuspendModal()">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmSuspend()">Suspend</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script>
+function toggleTheme(){const t=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',t);localStorage.setItem('ns-theme',t);document.getElementById('theme-toggle').textContent=t==='dark'?'☀️':'🌙';}
+(function(){const t=localStorage.getItem('ns-theme')||'dark';document.documentElement.setAttribute('data-theme',t);document.getElementById('theme-toggle').textContent=t==='dark'?'☀️':'🌙';document.querySelector('.sidebar-overlay').onclick=()=>document.getElementById('app-layout').classList.remove('sidebar-open');})();
+function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):''}
+function timeAgo(d){if(!d)return'';const m=Math.floor((Date.now()-new Date(d))/60000);if(m<1)return'just now';if(m<60)return m+'m ago';const h=Math.floor(m/60);return h<24?h+'h ago':Math.floor(h/24)+'d ago';}
+function fmtDate(d){if(!d)return'';return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
+function toast(msg,type='success'){const c=document.getElementById('toast-container');const el=document.createElement('div');el.className='toast toast-'+type;el.innerHTML='<div class="toast-icon">'+(type==='success'?'✓':'✕')+'</div><div class="toast-msg">'+msg+'</div>';c.appendChild(el);requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.add('show')));setTimeout(()=>{el.classList.remove('show');setTimeout(()=>el.remove(),350)},3500);}
+
+let users=[], sortCol='created_at', sortDir='desc', suspendId=null;
+
+function render(){
+  const tb=document.getElementById('users-tbody');
+  if(!users.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted)">No users</td></tr>';return;}
+  const sorted=[...users].sort((a,b)=>{
+    let va=a[sortCol]||'',vb=b[sortCol]||'';
+    if(typeof va==='number'&&typeof vb==='number')return sortDir==='asc'?va-vb:vb-va;
+    if(typeof va==='string')va=va.toLowerCase();if(typeof vb==='string')vb=vb.toLowerCase();
+    if(va<vb)return sortDir==='asc'?-1:1;if(va>vb)return sortDir==='asc'?1:-1;return 0;
+  });
+  tb.innerHTML=sorted.map(u=>`<tr>
+    <td><strong>${esc(u.display_name||'—')}</strong></td>
+    <td>${u.is_anonymous?'<span class="anon-badge">Anonymous</span>':'No'}</td>
+    <td class="td-muted">${fmtDate(u.created_at)}</td>
+    <td>${u.rooms_joined}</td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-danger btn-xs" onclick="openSuspend('${u.id}','${esc(u.display_name||'Anonymous')}')">Suspend</button>
+    </td>
+  </tr>`).join('');
+  document.querySelectorAll('th.sortable').forEach(th=>{th.classList.remove('asc','desc');if(th.dataset.col===sortCol)th.classList.add(sortDir);});
+}
+
+function updateStats(){
+  const total=users.length;
+  const anon=users.filter(u=>u.is_anonymous).length;
+  const named=total-anon;
+  const weekAgo=Date.now()-7*86400000;
+  const newW=users.filter(u=>new Date(u.created_at).getTime()>weekAgo).length;
+  document.getElementById('s-total').textContent=total;
+  document.getElementById('s-anon').textContent=anon;
+  document.getElementById('s-named').textContent=named;
+  document.getElementById('s-new').textContent=newW;
+}
+
+async function load(){
+  try{
+    const data=await fetch('/admin/api/hereya/users').then(r=>r.json());
+    users=data.users||[];
+    render();
+    updateStats();
+  }catch(e){console.error(e);}
+}
+
+function openSuspend(id,name){suspendId=id;document.getElementById('suspend-name').textContent=name;document.getElementById('suspend-modal').classList.add('show');}
+function closeSuspendModal(){document.getElementById('suspend-modal').classList.remove('show');suspendId=null;}
+async function confirmSuspend(){
+  if(!suspendId)return;
+  try{
+    await fetch('/admin/api/hereya/users/'+suspendId+'/suspend',{method:'POST'});
+    const u=users.find(x=>x.id===suspendId);
+    if(u){u.is_anonymous=true;u.display_name='[suspended]';}
+    render();updateStats();closeSuspendModal();toast('User suspended');
+  }catch(e){toast('Failed','error');}
+}
+
+document.querySelectorAll('th.sortable').forEach(th=>{
+  th.onclick=()=>{if(sortCol===th.dataset.col){sortDir=sortDir==='asc'?'desc':'asc';}else{sortCol=th.dataset.col;sortDir='asc';}render();};
+});
+document.getElementById('suspend-modal').onclick=e=>{if(e.target===document.getElementById('suspend-modal'))closeSuspendModal();};
+
+load();
+</script>
+</body>
+</html>

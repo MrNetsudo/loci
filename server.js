@@ -14,6 +14,18 @@ const app = express();
 const PORT = 3000;
 app.set('trust proxy', 1);
 
+// ── Supabase (Hereya data) ──────────────────────────────────────────────────
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://iczzskqumlrtifjyjvdl.supabase.co';
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imljenpza3F1bWxydGlmanlqdmRsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjY2OTYwOSwiZXhwIjoyMDg4MjQ1NjA5fQ.t7myefxxhucquaZWFoILBbiukWe9oEUPn7cXp0cG4_4';
+const SB_HEADERS = { 'apikey': SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'count=exact' };
+
+async function sbFetch(path, opts = {}) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, { headers: SB_HEADERS, ...opts });
+  const count = r.headers.get('Content-Range')?.split('/')[1];
+  const data = await r.json();
+  return { data, count: count ? parseInt(count) : null };
+}
+
 const pool = new Pool({
   host: process.env.DB_HOST || 'netsudo-postgres',
   database: process.env.DB_NAME || 'netsudo',
@@ -737,68 +749,215 @@ app.get('/admin/hereya', requireAuth, (req, res) => res.sendFile(v('hereya-admin
 app.get('/admin/hereya/venues', requireAuth, (req, res) => res.sendFile(v('hereya-venues.html')));
 app.get('/admin/hereya/rooms', requireAuth, (req, res) => res.sendFile(v('hereya-rooms.html')));
 app.get('/admin/hereya/moderation', requireAuth, (req, res) => res.sendFile(v('hereya-moderation.html')));
+app.get('/admin/hereya/users', requireAuth, (req, res) => res.sendFile(v('hereya-users.html')));
+app.get('/admin/hereya/waitlist', requireAuth, (req, res) => res.sendFile(v('hereya-waitlist.html')));
 
-// Hereya API — real DB queries
+// ── Hereya API — Supabase queries ───────────────────────────────────────────
 app.get('/admin/api/hereya/stats', requireAuth, async (req, res) => {
   try {
-    const [venues, rooms, users, msgs] = await Promise.all([
-      pool.query("SELECT COUNT(*)::int AS count FROM venues WHERE is_active=true"),
-      pool.query("SELECT COUNT(*)::int AS count FROM rooms WHERE status IN ('warming','active')"),
-      pool.query("SELECT COUNT(*)::int AS count FROM users"),
-      pool.query("SELECT COUNT(*)::int AS count FROM messages WHERE created_at > NOW() - INTERVAL '24 hours'"),
+    const yesterday = new Date(Date.now() - 86400000).toISOString();
+    const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+    const [venues, rooms, users, msgs, newUsers, waitlist] = await Promise.all([
+      sbFetch('venues?select=*&is_active=eq.true'),
+      sbFetch('rooms?select=*&status=in.(warming,active)'),
+      sbFetch('users?select=*'),
+      sbFetch(`messages?select=*&created_at=gte.${yesterday}`),
+      sbFetch(`users?select=*&created_at=gte.${weekAgo}`),
+      sbFetch('contacts?select=*&tag=eq.hereya-beta'),
     ]);
     res.json({
-      venues: venues.rows[0].count,
-      activeRooms: rooms.rows[0].count,
-      users: users.rows[0].count,
-      messagesToday: msgs.rows[0].count,
+      venues: venues.count || 0,
+      activeRooms: rooms.count || 0,
+      users: users.count || 0,
+      messagesToday: msgs.count || 0,
+      newUsersThisWeek: newUsers.count || 0,
+      waitlist: waitlist.count || 0,
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/admin/api/hereya/venues', requireAuth, async (req, res) => {
   try {
-    const r = await pool.query(
-      `SELECT id, name, category, city, state, geofence_radius_m AS radius,
-              is_active AS active, is_partner AS partner, latitude, longitude
-       FROM venues ORDER BY created_at DESC LIMIT 100`
-    );
-    res.json({ venues: r.rows });
+    const { search, category, city, partner, page } = req.query;
+    const limit = 50;
+    const offset = ((parseInt(page) || 1) - 1) * limit;
+    let query = `venues?select=id,name,category,city,state,latitude,longitude,geofence_radius_m,is_active,is_partner,osm_id,osm_synced_at&is_active=eq.true&order=name.asc&limit=${limit}&offset=${offset}`;
+    if (search) query += `&name=ilike.*${encodeURIComponent(search)}*`;
+    if (category) query += `&category=eq.${encodeURIComponent(category)}`;
+    if (city) query += `&city=eq.${encodeURIComponent(city)}`;
+    if (partner === 'true') query += '&is_partner=eq.true';
+    if (partner === 'false') query += '&is_partner=eq.false';
+    const result = await sbFetch(query);
+    res.json({ venues: result.data || [], total: result.count || 0 });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/admin/api/hereya/venues', requireAuth, async (req, res) => {
-  const { name, category, city, state, latitude, longitude, radius } = req.body;
+app.get('/admin/api/hereya/users', requireAuth, async (req, res) => {
   try {
-    const r = await pool.query(
-      `INSERT INTO venues (name, category, city, state, latitude, longitude, geofence_radius_m, is_active)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,true) RETURNING *`,
-      [name, category || 'other', city || null, state || null, parseFloat(latitude) || 0, parseFloat(longitude) || 0, parseInt(radius) || 100]
-    );
-    res.json({ ok: true, venue: r.rows[0] });
+    const result = await sbFetch('users?select=id,display_name,is_anonymous,created_at,updated_at&order=created_at.desc&limit=200');
+    const members = await sbFetch('room_members?select=user_id');
+    const countMap = {};
+    if (members.data) {
+      for (const m of members.data) {
+        countMap[m.user_id] = (countMap[m.user_id] || 0) + 1;
+      }
+    }
+    const users = (result.data || []).map(u => ({ ...u, rooms_joined: countMap[u.id] || 0 }));
+    res.json({ users, total: result.count || 0 });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/admin/api/hereya/rooms/live', requireAuth, async (req, res) => {
   try {
-    const r = await pool.query(
-      `SELECT r.id, v.name AS venue, r.status, r.total_members AS occupancy, r.activated_at AS started
-       FROM rooms r JOIN venues v ON r.venue_id=v.id
-       WHERE r.status IN ('warming','active')
-       ORDER BY r.activated_at DESC`
-    );
-    res.json({ rooms: r.rows });
+    const result = await sbFetch('rooms?select=id,status,total_members,total_messages,activated_at,peak_occupancy,venues(name,city,category)&status=in.(warming,active)&order=activated_at.desc');
+    const rooms = (result.data || []).map(r => ({
+      id: r.id,
+      venue: r.venues?.name || 'Unknown',
+      city: r.venues?.city || '',
+      category: r.venues?.category || '',
+      status: r.status,
+      occupancy: r.total_members || 0,
+      messages: r.total_messages || 0,
+      peak: r.peak_occupancy || 0,
+      started: r.activated_at,
+    }));
+    res.json({ rooms });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/admin/api/hereya/rooms/history', requireAuth, async (req, res) => {
+  try {
+    const result = await sbFetch('rooms?select=id,status,total_members,total_messages,activated_at,closed_at,peak_occupancy,venues(name,city)&status=in.(cooling,closed)&order=activated_at.desc&limit=100');
+    const rooms = (result.data || []).map(r => ({
+      id: r.id,
+      venue: r.venues?.name || 'Unknown',
+      city: r.venues?.city || '',
+      status: r.status,
+      members: r.total_members || 0,
+      messages: r.total_messages || 0,
+      peak: r.peak_occupancy || 0,
+      started: r.activated_at,
+      closed: r.closed_at,
+    }));
+    res.json({ rooms });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/admin/api/hereya/moderation', requireAuth, async (req, res) => {
   try {
-    const r = await pool.query(
-      `SELECT id, content AS snippet, room_id, created_at AS time, 'flagged' AS reason
-       FROM messages WHERE is_flagged=true
-       ORDER BY created_at DESC LIMIT 50`
-    );
-    res.json({ flagged: r.rows });
+    const result = await sbFetch('messages?select=id,content,created_at,is_flagged,room_id,rooms(venues(name))&is_flagged=eq.true&order=created_at.desc&limit=50');
+    const flagged = (result.data || []).map(m => ({
+      id: m.id,
+      snippet: m.content,
+      venue: m.rooms?.venues?.name || '',
+      room_id: m.room_id,
+      time: m.created_at,
+      reason: 'flagged',
+    }));
+    res.json({ flagged });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/admin/api/hereya/moderation/:id/dismiss', requireAuth, async (req, res) => {
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/messages?id=eq.${req.params.id}`, {
+      method: 'PATCH', headers: SB_HEADERS, body: JSON.stringify({ is_flagged: false }),
+    });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/admin/api/hereya/moderation/:id', requireAuth, async (req, res) => {
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/messages?id=eq.${req.params.id}`, {
+      method: 'DELETE', headers: SB_HEADERS,
+    });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/admin/api/hereya/waitlist', requireAuth, async (req, res) => {
+  try {
+    const r = await pool.query("SELECT id, name, email, created_at FROM contacts WHERE tag IN ('hereya-beta','loci-beta') ORDER BY created_at DESC");
+    res.json({ contacts: r.rows });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/admin/api/hereya/waitlist/blast', requireAuth, async (req, res) => {
+  const { subject, html } = req.body;
+  if (!subject || !html) return res.status(400).json({ error: 'Subject and HTML body required' });
+  try {
+    const contacts = await pool.query("SELECT name, email FROM contacts WHERE tag IN ('hereya-beta','loci-beta')");
+    const RESEND_KEY = process.env.RESEND_API_KEY;
+    let sent = 0;
+    for (const c of contacts.rows) {
+      try {
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ from: 'Hereya <hello@hereya.app>', to: c.email, subject, html: html.replace('{{name}}', c.name) }),
+        });
+        sent++;
+      } catch (e) { /* skip failed sends */ }
+    }
+    res.json({ ok: true, sent });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.patch('/admin/api/hereya/venues/:id/partner', requireAuth, async (req, res) => {
+  try {
+    const get = await sbFetch(`venues?select=is_partner&id=eq.${req.params.id}`);
+    const current = get.data?.[0]?.is_partner || false;
+    await fetch(`${SUPABASE_URL}/rest/v1/venues?id=eq.${req.params.id}`, {
+      method: 'PATCH', headers: SB_HEADERS, body: JSON.stringify({ is_partner: !current }),
+    });
+    res.json({ ok: true, is_partner: !current });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.patch('/admin/api/hereya/venues/:id/geofence', requireAuth, async (req, res) => {
+  const { geofence_radius_m } = req.body;
+  if (!geofence_radius_m || isNaN(parseInt(geofence_radius_m))) return res.status(400).json({ error: 'Valid radius required' });
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/venues?id=eq.${req.params.id}`, {
+      method: 'PATCH', headers: SB_HEADERS, body: JSON.stringify({ geofence_radius_m: parseInt(geofence_radius_m) }),
+    });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/admin/api/hereya/users/:id/suspend', requireAuth, async (req, res) => {
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/users?id=eq.${req.params.id}`, {
+      method: 'PATCH', headers: SB_HEADERS, body: JSON.stringify({ is_anonymous: true, display_name: '[suspended]' }),
+    });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/admin/api/hereya/growth', requireAuth, async (req, res) => {
+  try {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
+    const [userGrowth, roomGrowth] = await Promise.all([
+      sbFetch(`users?select=created_at&created_at=gte.${thirtyDaysAgo}&order=created_at.asc`),
+      sbFetch(`rooms?select=activated_at&activated_at=gte.${thirtyDaysAgo}&order=activated_at.asc`),
+    ]);
+    function bucketByDay(items, field) {
+      const map = {};
+      for (const item of (items.data || [])) {
+        const day = item[field]?.split('T')[0];
+        if (day) map[day] = (map[day] || 0) + 1;
+      }
+      return map;
+    }
+    const userDays = bucketByDay(userGrowth, 'created_at');
+    const roomDays = bucketByDay(roomGrowth, 'activated_at');
+    const days = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
+      days.push({ date: d, users: userDays[d] || 0, rooms: roomDays[d] || 0 });
+    }
+    res.json({ days });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

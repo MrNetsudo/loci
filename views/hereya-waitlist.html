@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hereya Admin — Waitlist</title>
+  <link rel="stylesheet" href="/admin/css/style.css">
+  <style>
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;display:none;align-items:center;justify-content:center}
+    .modal-overlay.show{display:flex}
+    .modal{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:24px;width:520px;max-width:90vw}
+    .modal h3{margin:0 0 16px;font-size:16px}
+    th.sortable{cursor:pointer;user-select:none}
+    th.sortable:hover{color:var(--accent)}
+    th.sortable.asc::after{content:'▲';margin-left:4px;opacity:.4}
+    th.sortable.desc::after{content:'▼';margin-left:4px;opacity:.4}
+  </style>
+</head>
+<body>
+<div class="app-layout" id="app-layout">
+  <div class="sidebar-overlay"></div>
+  <aside id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon" style="background:linear-gradient(135deg,#6366f1,#06b6d4)">H</div>
+      <div><div class="brand-text">NetSudo</div><div class="brand-sub">Admin Panel</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">NetSudo</div>
+      <a href="/admin/dashboard" class="nav-item"><span class="nav-icon">📊</span><span class="nav-text">Dashboard</span></a>
+      <a href="/admin/pipeline" class="nav-item"><span class="nav-icon">🔀</span><span class="nav-text">Pipeline</span></a>
+      <a href="/admin/contacts" class="nav-item"><span class="nav-icon">👥</span><span class="nav-text">Contacts</span></a>
+      <a href="/admin/settings" class="nav-item"><span class="nav-icon">⚙️</span><span class="nav-text">Settings</span></a>
+      <div class="nav-section-label">Hereya</div>
+      <a href="/admin/hereya" class="nav-item"><span class="nav-icon">📊</span><span class="nav-text">Overview</span></a>
+      <a href="/admin/hereya/venues" class="nav-item"><span class="nav-icon">📍</span><span class="nav-text">Venues</span></a>
+      <a href="/admin/hereya/users" class="nav-item"><span class="nav-icon">👤</span><span class="nav-text">Users</span></a>
+      <a href="/admin/hereya/rooms" class="nav-item"><span class="nav-icon">💬</span><span class="nav-text">Rooms</span></a>
+      <a href="/admin/hereya/moderation" class="nav-item"><span class="nav-icon">🛡</span><span class="nav-text">Moderation</span></a>
+      <a href="/admin/hereya/waitlist" class="nav-item active"><span class="nav-icon">📋</span><span class="nav-text">Waitlist</span></a>
+    </nav>
+  </aside>
+  <div class="main-wrapper">
+    <header id="topbar">
+      <div class="topbar-left">
+        <button class="sidebar-toggle" onclick="document.getElementById('app-layout').classList.toggle('sidebar-open')">☰</button>
+        <h1 class="page-title">Waitlist</h1>
+      </div>
+      <div class="topbar-right">
+        <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()"></button>
+        <a href="/admin/logout" class="logout-btn">Logout</a>
+      </div>
+    </header>
+    <main class="main-content">
+
+      <!-- Stats + Actions -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+        <div class="stat-card" style="--stat-color:#ec4899;flex:0 0 auto;min-width:200px">
+          <div class="stat-icon-wrap" style="--stat-bg:rgba(236,72,153,0.12)">📋</div>
+          <div class="stat-value" id="s-count"><span class="skeleton" style="width:40px;height:28px;display:inline-block"></span></div>
+          <div class="stat-label">Total Waitlist Signups</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary" onclick="exportCSV()">📥 Export CSV</button>
+          <button class="btn btn-primary" onclick="openBlast()">📧 Send Blast</button>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">Waitlist Signups</span></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th class="sortable" data-col="name">Name</th>
+                <th class="sortable" data-col="email">Email</th>
+                <th class="sortable" data-col="created_at">Signed Up</th>
+              </tr>
+            </thead>
+            <tbody id="wait-tbody">
+              <tr><td colspan="3"><div class="skeleton skeleton-row"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- Send Blast Modal -->
+<div class="modal-overlay" id="blast-modal">
+  <div class="modal">
+    <h3>📧 Send Email Blast</h3>
+    <p style="font-size:12px;color:var(--text-secondary);margin:0 0 16px">This will email all <strong id="blast-count">0</strong> waitlist contacts.</p>
+    <div class="form-group">
+      <label class="form-label">Subject</label>
+      <input class="form-control" id="blast-subject" placeholder="e.g. Hereya is launching soon!">
+    </div>
+    <div class="form-group">
+      <label class="form-label">HTML Body <span style="font-weight:normal;color:var(--text-secondary)">(use {{name}} for personalization)</span></label>
+      <textarea class="form-control" id="blast-html" rows="6" placeholder="<h1>Hey {{name}}!</h1><p>We're almost ready...</p>"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeBlast()">Cancel</button>
+      <button class="btn btn-primary" id="send-btn" onclick="sendBlast()">Send Emails</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script>
+function toggleTheme(){const t=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',t);localStorage.setItem('ns-theme',t);document.getElementById('theme-toggle').textContent=t==='dark'?'☀️':'🌙';}
+(function(){const t=localStorage.getItem('ns-theme')||'dark';document.documentElement.setAttribute('data-theme',t);document.getElementById('theme-toggle').textContent=t==='dark'?'☀️':'🌙';document.querySelector('.sidebar-overlay').onclick=()=>document.getElementById('app-layout').classList.remove('sidebar-open');})();
+function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):''}
+function fmtDate(d){if(!d)return'';return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
+function toast(msg,type='success'){const c=document.getElementById('toast-container');const el=document.createElement('div');el.className='toast toast-'+type;el.innerHTML='<div class="toast-icon">'+(type==='success'?'✓':'✕')+'</div><div class="toast-msg">'+msg+'</div>';c.appendChild(el);requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.add('show')));setTimeout(()=>{el.classList.remove('show');setTimeout(()=>el.remove(),350)},3500);}
+
+let contacts=[], sortCol='created_at', sortDir='desc';
+
+function render(){
+  const tb=document.getElementById('wait-tbody');
+  if(!contacts.length){tb.innerHTML='<tr><td colspan="3" style="text-align:center;padding:24px;color:var(--text-muted)">No waitlist signups yet</td></tr>';return;}
+  const sorted=[...contacts].sort((a,b)=>{
+    let va=a[sortCol]||'',vb=b[sortCol]||'';
+    if(typeof va==='string')va=va.toLowerCase();if(typeof vb==='string')vb=vb.toLowerCase();
+    if(va<vb)return sortDir==='asc'?-1:1;if(va>vb)return sortDir==='asc'?1:-1;return 0;
+  });
+  tb.innerHTML=sorted.map(c=>`<tr>
+    <td><strong>${esc(c.name)}</strong></td>
+    <td>${esc(c.email)}</td>
+    <td class="td-muted">${fmtDate(c.created_at)}</td>
+  </tr>`).join('');
+  document.querySelectorAll('th.sortable').forEach(th=>{th.classList.remove('asc','desc');if(th.dataset.col===sortCol)th.classList.add(sortDir);});
+}
+
+async function load(){
+  try{
+    const data=await fetch('/admin/api/hereya/waitlist').then(r=>r.json());
+    contacts=data.contacts||[];
+    document.getElementById('s-count').textContent=contacts.length;
+    render();
+  }catch(e){console.error(e);}
+}
+
+function exportCSV(){
+  if(!contacts.length){toast('No data to export','error');return;}
+  const rows=[['Name','Email','Signed Up'],...contacts.map(c=>[c.name,c.email,c.created_at])];
+  const csv=rows.map(r=>r.map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='hereya-waitlist-'+new Date().toISOString().split('T')[0]+'.csv';
+  a.click();
+  toast('CSV downloaded');
+}
+
+function openBlast(){document.getElementById('blast-count').textContent=contacts.length;document.getElementById('blast-modal').classList.add('show');}
+function closeBlast(){document.getElementById('blast-modal').classList.remove('show');}
+async function sendBlast(){
+  const subject=document.getElementById('blast-subject').value.trim();
+  const html=document.getElementById('blast-html').value.trim();
+  if(!subject||!html){toast('Subject and body required','error');return;}
+  const btn=document.getElementById('send-btn');
+  btn.disabled=true;btn.textContent='Sending...';
+  try{
+    const r=await fetch('/admin/api/hereya/waitlist/blast',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subject,html})});
+    const data=await r.json();
+    if(data.ok){toast(`Sent to ${data.sent} contacts`);closeBlast();}
+    else{toast('Send failed','error');}
+  }catch(e){toast('Failed','error');}
+  btn.disabled=false;btn.textContent='Send Emails';
+}
+
+document.querySelectorAll('th.sortable').forEach(th=>{
+  th.onclick=()=>{if(sortCol===th.dataset.col){sortDir=sortDir==='asc'?'desc':'asc';}else{sortCol=th.dataset.col;sortDir='desc';}render();};
+});
+document.getElementById('blast-modal').onclick=e=>{if(e.target===document.getElementById('blast-modal'))closeBlast();};
+
+load();
+</script>
+</body>
+</html>
