@@ -19,6 +19,7 @@ import {
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as api from '../lib/api';
+import { useLayout } from '../lib/useLayout';
 
 const TOKEN_KEY = '@hereya_token';
 const USER_KEY = '@hereya_user';
@@ -29,6 +30,7 @@ export default function SettingsScreen() {
   const [editingName, setEditingName] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const { contentPaddingH, isTablet } = useLayout();
 
   useEffect(() => {
     loadUser();
@@ -111,7 +113,7 @@ export default function SettingsScreen() {
   const isAnon = user?.is_anonymous;
 
   return (
-    <ScrollView style={s.container} contentContainerStyle={s.content}>
+    <ScrollView style={s.container} contentContainerStyle={[s.content, isTablet && { paddingHorizontal: contentPaddingH }]}>
       <StatusBar barStyle="light-content" />
 
       {/* Avatar */}

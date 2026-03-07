@@ -21,6 +21,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocation } from '../lib/useLocation';
+import { useLayout } from '../lib/useLayout';
 import * as api from '../lib/api';
 import type { Venue, PresenceResult } from '../lib/api';
 import { VenueIcon } from '../components/VenueIcon';
@@ -75,6 +76,7 @@ function formatDistance(meters: number): string {
 // ── Home Screen ──────────────────────────────────────────
 export default function HomeScreen() {
   const location = useLocation(30_000);
+  const { isTablet, contentPaddingH, r } = useLayout();
   const [initialized, setInitialized] = useState(false);
   const [venues, setVenues] = useState<VenueWithDistance[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -255,7 +257,7 @@ export default function HomeScreen() {
   const showSearch = searchQuery.length >= 1;
 
   return (
-    <View style={s.container}>
+    <View style={[s.container, isTablet && { paddingHorizontal: contentPaddingH }]}>
       <StatusBar barStyle="light-content" />
 
       {/* At-venue banner */}

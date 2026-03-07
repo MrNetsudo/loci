@@ -3,7 +3,7 @@
     "name": "Hereya",
     "slug": "hereya",
     "version": "0.1.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "scheme": "hereya",
     "userInterfaceStyle": "dark",
@@ -16,7 +16,8 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": false,
+      "supportsTablet": true,
+      "requiresFullScreen": false,
       "bundleIdentifier": "com.netsudo.hereya",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Hereya needs your location to find venues near you and put you in the right chat room.",
