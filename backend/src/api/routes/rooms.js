@@ -3,6 +3,8 @@
 const express = require('express');
 const { requireAuth } = require('../middleware/auth');
 const { supabaseAdmin } = require('../../utils/supabase');
+const venueService = require('../../services/venues');
+const config = require('../../config');
 
 const router = express.Router();
 
@@ -34,7 +36,7 @@ router.get('/:room_id', requireAuth, async (req, res, next) => {
 // POST /rooms/:room_id/join
 router.post('/:room_id/join', requireAuth, async (req, res, next) => {
   try {
-    const { session_display_name } = req.body;
+    const { session_display_name, lat, lng, accuracy_m } = req.body;
 
     // Check room is active
     const { data: room } = await supabaseAdmin
@@ -53,17 +55,61 @@ router.post('/:room_id/join', requireAuth, async (req, res, next) => {
       return res.status(403).json({ error: 'FORBIDDEN', message: 'This room requires a named account' });
     }
 
+    // Presence verification
+    let locationVerified = false;
+    if (lat != null && lng != null) {
+      const { data: venue } = await supabaseAdmin
+        .from('venues')
+        .select('latitude, longitude, geofence_radius_m')
+        .eq('id', room.venue_id)
+        .single();
+
+      if (venue) {
+        const distance_m = venueService.haversineM(lat, lng, venue.latitude, venue.longitude);
+        const geofenceRadius = venue.geofence_radius_m || config.geofence.defaultRadiusM;
+        const acc = accuracy_m || 50;
+
+        if (distance_m > geofenceRadius + Math.min(acc, 50)) {
+          return res.status(403).json({
+            error: 'OUTSIDE_GEOFENCE',
+            message: 'You must be at the venue to join this room',
+            distance_m: Math.round(distance_m),
+            venue_radius_m: geofenceRadius,
+          });
+        }
+
+        if (accuracy_m != null && accuracy_m > geofenceRadius * (config.geofence.maxAccuracyMultiplier || 2)) {
+          return res.status(403).json({
+            error: 'LOW_GPS_ACCURACY',
+            message: 'GPS accuracy too low to verify your location. Move to an open area and try again.',
+            accuracy_m,
+            required_accuracy_m: geofenceRadius,
+          });
+        }
+
+        locationVerified = true;
+      }
+    }
+
     // Upsert room membership
     const displayName = session_display_name || req.user.display_name;
+    const upsertData = {
+      room_id: room.id,
+      user_id: req.user.id,
+      is_present: true,
+      left_at: null,
+      session_display_name: displayName,
+    };
+    // Include location fields if verified (columns may not exist yet — graceful)
+    if (locationVerified) {
+      upsertData.last_lat = lat;
+      upsertData.last_lng = lng;
+      upsertData.last_accuracy_m = accuracy_m || null;
+      upsertData.location_verified_at = new Date().toISOString();
+    }
     const { data: member, error } = await supabaseAdmin
       .from('room_members')
-      .upsert({
-        room_id: room.id,
-        user_id: req.user.id,
-        is_present: true,
-        left_at: null,
-        session_display_name: displayName,
-      }, { onConflict: 'room_id,user_id' })
+      .upsert(upsertData, { onConflict: 'room_id,user_id' })
       .select()
       .single();
 
@@ -77,6 +123,7 @@ router.post('/:room_id/join', requireAuth, async (req, res, next) => {
     return res.json({
       room: { id: room.id, status: 'active' },
       member: { id: member.id, display_name: displayName },
+      location_verified: locationVerified,
       realtime_channel: `room:${room.id}`,
       supabase_url: process.env.HEREYA_SUPABASE_URL,
     });

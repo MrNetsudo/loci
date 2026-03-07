@@ -33,8 +33,10 @@ module.exports = {
     presenceTtlHours: Number(process.env.LOCI_PRESENCE_TTL_HOURS) || 1,
   },
   geofence: {
-    defaultRadiusM: Number(process.env.LOCI_DEFAULT_GEOFENCE_RADIUS_M) || 100,
-    stadiumRadiusM: Number(process.env.LOCI_STADIUM_GEOFENCE_RADIUS_M) || 300,
+    defaultRadiusM: Number(process.env.HEREYA_DEFAULT_GEOFENCE_RADIUS_M) || 100,
+    stadiumRadiusM: Number(process.env.HEREYA_STADIUM_GEOFENCE_RADIUS_M) || 400,
+    maxAccuracyMultiplier: Number(process.env.HEREYA_MAX_ACCURACY_MULTIPLIER) || 2,
+    enforcedInProduction: process.env.NODE_ENV === 'production',
   },
   rateLimits: {
     windowMs: Number(process.env.HEREYA_RATE_LIMIT_WINDOW_MS) || 60_000,

@@ -3,7 +3,7 @@
 const express = require('express');
 const Joi = require('joi');
 const OpenAI = require('openai');
-const { optionalAuth } = require('../middleware/auth');
+const { optionalAuth, requireAuth } = require('../middleware/auth');
 const { supabaseAdmin } = require('../../utils/supabase');
 const venueService = require('../../services/venues');
 const config = require('../../config');
@@ -24,6 +24,7 @@ const nearbySchema = Joi.object({
   lat: Joi.number().min(-90).max(90).required(),
   lng: Joi.number().min(-180).max(180).required(),
   radius: Joi.number().positive().max(5000).default(500),
+  accuracy_m: Joi.number().positive().max(10000).optional(),
 });
 
 // GET /venues/nearby — fetch from Foursquare (cached in DB)
@@ -36,6 +37,7 @@ router.get('/nearby', optionalAuth, async (req, res, next) => {
       latitude: value.lat,
       longitude: value.lng,
       radiusM: value.radius,
+      accuracyM: value.accuracy_m,
     });
 
     return res.json({ venues });
@@ -267,6 +269,65 @@ router.get('/:id/vibe', optionalAuth, async (req, res, next) => {
     setTimeout(() => vibeCache.delete(cacheKey), 60 * 60 * 1000);
 
     return res.json({ vibe, cached: false });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ── POST /venues/:id/verify-presence ──────────────────────────────────────
+const verifyPresenceSchema = Joi.object({
+  lat: Joi.number().min(-90).max(90).required(),
+  lng: Joi.number().min(-180).max(180).required(),
+  accuracy_m: Joi.number().positive().max(10000).required(),
+});
+
+router.post('/:id/verify-presence', requireAuth, async (req, res, next) => {
+  try {
+    const { error, value } = verifyPresenceSchema.validate(req.body);
+    if (error) return res.status(400).json({ error: 'VALIDATION_ERROR', message: error.message });
+
+    const { data: venue } = await supabaseAdmin
+      .from('venues')
+      .select('id, latitude, longitude, geofence_radius_m')
+      .eq('id', req.params.id)
+      .single();
+
+    if (!venue) {
+      return res.json({
+        authorized: false, distance_m: null, venue_radius_m: null,
+        accuracy_m: value.accuracy_m, confidence: 0,
+        status: 'VENUE_NOT_FOUND', message: 'Venue not found',
+      });
+    }
+
+    const distance_m = venueService.haversineM(value.lat, value.lng, venue.latitude, venue.longitude);
+    const venueRadius = venue.geofence_radius_m || config.geofence.defaultRadiusM;
+    const confidence = venueService.computeConfidence(distance_m, venueRadius, value.accuracy_m);
+
+    let status, authorized, message;
+    if (value.accuracy_m > venueRadius) {
+      status = 'LOW_ACCURACY';
+      authorized = false;
+      message = 'GPS accuracy too low to verify your location. Move to an open area and try again.';
+    } else if (distance_m > venueRadius + Math.min(value.accuracy_m, 50)) {
+      status = 'OUTSIDE_GEOFENCE';
+      authorized = false;
+      message = 'You appear to be outside this venue.';
+    } else {
+      status = 'AUTHORIZED';
+      authorized = true;
+      message = 'Location verified. You are at the venue.';
+    }
+
+    return res.json({
+      authorized,
+      distance_m: Math.round(distance_m),
+      venue_radius_m: venueRadius,
+      accuracy_m: value.accuracy_m,
+      confidence,
+      status,
+      message,
+    });
   } catch (err) {
     return next(err);
   }

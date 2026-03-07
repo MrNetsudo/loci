@@ -5,6 +5,28 @@ const { supabaseAdmin } = require('../utils/supabase');
 const config = require('../config');
 const logger = require('../utils/logger');
 
+/**
+ * Haversine distance between two lat/lng points, in meters.
+ */
+function haversineM(lat1, lng1, lat2, lng2) {
+  const R = 6371000; // Earth radius in meters
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+/**
+ * Confidence score for a user being inside a venue's geofence.
+ */
+function computeConfidence(distanceM, venueRadiusM, accuracyM) {
+  const accuracyPenalty = accuracyM > venueRadiusM ? (venueRadiusM / accuracyM) : 1.0;
+  const distanceRatio = Math.max(0, 1 - (distanceM / venueRadiusM));
+  return Math.round(Math.min(1, distanceRatio * accuracyPenalty) * 100) / 100;
+}
+
 // OpenStreetMap Overpass API — free, no key required
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
 const CACHE_TTL_HOURS = 24;
@@ -31,25 +53,40 @@ class VenueService {
   /**
    * Get venues near a lat/lng coordinate.
    */
-  async getNearbyVenues({ latitude, longitude, radiusM = 500, limit = 20 }) {
+  async getNearbyVenues({ latitude, longitude, radiusM = 500, limit = 20, accuracyM }) {
     // 1. Try DB cache first
     const cached = await this._getCachedNearby(latitude, longitude, radiusM);
+    let venues;
     if (cached.length > 0) {
       logger.debug('Venue cache hit', { count: cached.length });
-      return cached.slice(0, limit);
+      venues = cached.slice(0, limit);
+    } else {
+      // 2. Fetch from OpenStreetMap Overpass
+      const osmVenues = await this._fetchFromOSM({ latitude, longitude, radiusM });
+      if (!osmVenues.length) {
+        logger.warn('No venues found from OSM', { latitude, longitude, radiusM });
+        return [];
+      }
+      // 3. Upsert into DB cache
+      const upserted = await this._upsertVenues(osmVenues);
+      logger.info('OSM venues cached', { count: upserted.length });
+      venues = upserted.slice(0, limit);
     }
 
-    // 2. Fetch from OpenStreetMap Overpass
-    const osmVenues = await this._fetchFromOSM({ latitude, longitude, radiusM });
-    if (!osmVenues.length) {
-      logger.warn('No venues found from OSM', { latitude, longitude, radiusM });
-      return [];
-    }
-
-    // 3. Upsert into DB cache
-    const upserted = await this._upsertVenues(osmVenues);
-    logger.info('OSM venues cached', { count: upserted.length });
-    return upserted.slice(0, limit);
+    // Enrich with distance, confidence, geofence status
+    return venues.map((v) => {
+      const distance_m = v._dist_m != null ? v._dist_m : haversineM(latitude, longitude, v.latitude, v.longitude);
+      const venueRadius = v.geofence_radius_m || config.geofence.defaultRadiusM;
+      const acc = accuracyM || 0;
+      const confidence = computeConfidence(distance_m, venueRadius, acc);
+      return {
+        ...v,
+        _dist_m: undefined, // remove internal field
+        distance_m: Math.round(distance_m),
+        confidence,
+        is_within_geofence: distance_m <= venueRadius,
+      };
+    });
   }
 
   /**
@@ -93,16 +130,14 @@ class VenueService {
 
     if (!data?.length) return [];
 
-    // Sort by actual distance
+    // Sort by actual distance (haversine)
     const sorted = data
       .map((v) => {
-        const dLat = v.latitude - lat;
-        const dLng = v.longitude - lng;
-        const dist = Math.sqrt(dLat * dLat + dLng * dLng) * 111000;
-        return { ...v, _dist: dist };
+        const dist = haversineM(lat, lng, v.latitude, v.longitude);
+        return { ...v, _dist_m: dist };
       })
-      .filter((v) => v._dist <= radiusM)
-      .sort((a, b) => a._dist - b._dist);
+      .filter((v) => v._dist_m <= radiusM)
+      .sort((a, b) => a._dist_m - b._dist_m);
 
     const cutoff = new Date(Date.now() - CACHE_TTL_HOURS * 60 * 60 * 1000).toISOString();
     return sorted.filter((v) => !v.osm_synced_at || v.osm_synced_at > cutoff);
@@ -177,14 +212,23 @@ out center;
 
   _getRadiusForCategory(category = '') {
     const c = category.toLowerCase();
-    if (['stadium', 'arena', 'ballpark', 'sports_centre'].some((k) => c.includes(k))) {
-      return config.geofence.stadiumRadiusM;
+    const radiusMap = {
+      stadium: 400, arena: 350, sports_centre: 300, ballpark: 400,
+      nightclub: 75, bar: 75, pub: 75,
+      restaurant: 100, cafe: 100, fast_food: 80, food_court: 150,
+      cinema: 120, theatre: 120, arts_centre: 150, concert_hall: 200,
+      casino: 150, marketplace: 200, events_venue: 200,
+      park: 250, airport: 500, mall: 300,
+    };
+    for (const [key, radius] of Object.entries(radiusMap)) {
+      if (c.includes(key)) return radius;
     }
-    if (['park', 'airport', 'mall', 'marketplace'].some((k) => c.includes(k))) {
-      return 200;
-    }
-    return config.geofence.defaultRadiusM;
+    return config.geofence.defaultRadiusM || 100;
   }
 }
 
-module.exports = new VenueService();
+const venueService = new VenueService();
+venueService.haversineM = haversineM;
+venueService.computeConfidence = computeConfidence;
+
+module.exports = venueService;
