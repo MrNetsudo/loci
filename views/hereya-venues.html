@@ -5,23 +5,187 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Hereya Admin — Venues</title>
   <link rel="stylesheet" href="/admin/css/style.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
   <style>
-    .filter-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
-    .filter-bar input,.filter-bar select{height:36px;font-size:13px}
-    .partner-pill{background:rgba(139,92,246,0.15);color:#8b5cf6;border:1px solid rgba(139,92,246,0.3);padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600}
-    .toggle-btn{cursor:pointer;background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px;color:var(--text-secondary);transition:all .2s}
-    .toggle-btn:hover{border-color:var(--accent);color:var(--accent)}
-    .toggle-btn.on{background:rgba(139,92,246,0.15);color:#8b5cf6;border-color:#8b5cf6}
-    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;display:none;align-items:center;justify-content:center}
-    .modal-overlay.show{display:flex}
-    .modal{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:24px;width:400px;max-width:90vw}
-    .modal h3{margin:0 0 16px;font-size:16px}
-    .venue-count{font-size:13px;color:var(--text-secondary);margin-left:8px}
+    /* ── Layout ─────────────────────────────────────────────────────── */
+    .venues-layout{display:flex;gap:0;height:calc(100vh - 64px);overflow:hidden}
+    .filter-panel{width:260px;min-width:260px;background:var(--bg-card);border-right:1px solid var(--border);overflow-y:auto;padding:16px;flex-shrink:0}
+    .results-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+
+    /* ── Stats Strip ───────────────────────────────────────────────── */
+    .stats-strip{display:flex;gap:12px;padding:16px 16px 0;flex-shrink:0}
+    .stat-card{flex:1;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:12px 16px}
+    .stat-card .stat-value{font-size:22px;font-weight:700;color:var(--text-primary)}
+    .stat-card .stat-label{font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+
+    /* ── Filter Pills ──────────────────────────────────────────────── */
+    .filter-pills{display:flex;flex-wrap:wrap;gap:6px;padding:10px 16px 0;flex-shrink:0}
+    .filter-pill{display:inline-flex;align-items:center;gap:4px;background:rgba(99,102,241,.15);color:#818cf8;border:1px solid rgba(99,102,241,.25);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:500}
+    .filter-pill .pill-x{cursor:pointer;opacity:.6;margin-left:2px;font-size:13px}
+    .filter-pill .pill-x:hover{opacity:1}
+
+    /* ── Filter Panel ──────────────────────────────────────────────── */
+    .fp-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+    .fp-header h3{margin:0;font-size:14px;font-weight:600;color:var(--text-primary)}
+    .fp-header .fp-badge{background:#6366f1;color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:6px}
+    .fp-clear{font-size:11px;color:var(--accent);cursor:pointer;text-decoration:none}
+    .fp-clear:hover{text-decoration:underline}
+    .fp-section{margin-bottom:16px}
+    .fp-section-title{font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+    .fp-search{width:100%;height:34px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:0 10px;color:var(--text-primary);outline:none}
+    .fp-search:focus{border-color:var(--accent)}
+    .fp-checks{max-height:200px;overflow-y:auto}
+    .fp-check{display:flex;align-items:center;gap:6px;padding:3px 0;cursor:pointer;font-size:12px;color:var(--text-primary)}
+    .fp-check input{accent-color:#6366f1;margin:0}
+    .fp-check .fp-count{margin-left:auto;font-size:10px;color:var(--text-secondary)}
+    .fp-show-more{font-size:11px;color:var(--accent);cursor:pointer;margin-top:4px;display:inline-block}
+    .fp-radio{display:flex;flex-direction:column;gap:4px}
+    .fp-radio label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-primary);cursor:pointer}
+    .fp-radio input{accent-color:#6366f1;margin:0}
+    /* ── Range Slider ────────────────────────────────────────────── */
+    .range-wrap{position:relative;height:36px;margin-top:4px}
+    .range-wrap input[type=range]{position:absolute;top:0;left:0;width:100%;height:36px;-webkit-appearance:none;appearance:none;background:none;pointer-events:none;margin:0}
+    .range-wrap input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;height:16px;width:16px;border-radius:50%;background:#6366f1;pointer-events:all;cursor:pointer;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+    .range-wrap input[type=range]::-moz-range-thumb{height:16px;width:16px;border-radius:50%;background:#6366f1;pointer-events:all;cursor:pointer;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+    .range-track{position:absolute;top:16px;left:0;right:0;height:4px;border-radius:2px;background:var(--border)}
+    .range-fill{position:absolute;top:16px;height:4px;border-radius:2px;background:#6366f1}
+    .range-labels{display:flex;justify-content:space-between;margin-top:2px;font-size:11px;color:var(--accent)}
+
+    /* ── View Tabs + Action Bar ────────────────────────────────────── */
+    .toolbar{display:flex;align-items:center;gap:10px;padding:12px 16px;flex-shrink:0;border-bottom:1px solid var(--border)}
+    .view-tabs{display:flex;background:var(--bg);border-radius:6px;overflow:hidden;border:1px solid var(--border)}
+    .view-tab{padding:6px 16px;font-size:12px;font-weight:500;cursor:pointer;color:var(--text-secondary);border:none;background:none;transition:all .15s}
+    .view-tab.active{background:var(--accent);color:#fff}
+    .toolbar-spacer{flex:1}
+    .toolbar .btn{height:32px;font-size:12px}
+
+    /* ── Bulk Bar ──────────────────────────────────────────────────── */
+    .bulk-bar{display:none;align-items:center;gap:10px;padding:8px 16px;background:rgba(99,102,241,.08);border-bottom:1px solid rgba(99,102,241,.2);flex-shrink:0}
+    .bulk-bar.show{display:flex}
+    .bulk-count{font-size:13px;font-weight:600;color:#818cf8}
+    .bulk-bar .btn{height:28px;font-size:11px;padding:0 10px}
+    .bulk-tier-wrap{position:relative;display:inline-block}
+    .bulk-tier-menu{position:absolute;top:100%;left:0;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:4px;z-index:50;display:none;min-width:120px}
+    .bulk-tier-menu.show{display:block}
+    .bulk-tier-menu button{display:block;width:100%;text-align:left;padding:6px 10px;font-size:12px;border:none;background:none;color:var(--text-primary);cursor:pointer;border-radius:4px}
+    .bulk-tier-menu button:hover{background:var(--bg)}
+    .bulk-radius-input{width:70px;height:28px;font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:0 6px;color:var(--text-primary)}
+
+    /* ── Table ─────────────────────────────────────────────────────── */
+    .table-container{flex:1;overflow:auto}
+    #venues-table{width:100%;border-collapse:collapse}
+    #venues-table th{position:sticky;top:0;background:var(--bg-card);z-index:5;padding:10px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);white-space:nowrap}
+    #venues-table td{padding:10px 12px;font-size:13px;color:var(--text-primary);border-bottom:1px solid var(--border);vertical-align:middle}
+    #venues-table tr:hover td{background:rgba(255,255,255,.02)}
     th.sortable{cursor:pointer;user-select:none}
     th.sortable:hover{color:var(--accent)}
-    th.sortable.asc::after{content:'▲';margin-left:4px;opacity:.4}
-    th.sortable.desc::after{content:'▼';margin-left:4px;opacity:.4}
+    th.sort-asc::after{content:' ▲';font-size:9px;opacity:.6}
+    th.sort-desc::after{content:' ▼';font-size:9px;opacity:.6}
+    .venue-name{font-weight:600;color:var(--text-primary)}
+    .venue-addr{font-size:11px;color:var(--text-secondary);margin-top:1px}
+    .cat-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:500;text-transform:capitalize}
+    .partner-badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;text-transform:uppercase}
+    .partner-none{background:transparent;color:var(--text-secondary)}
+    .partner-bronze{background:#3d2a1a;color:#cd7f32;border:1px solid rgba(205,127,50,.25)}
+    .partner-silver{background:#1e2530;color:#c0c0c0;border:1px solid rgba(192,192,192,.25)}
+    .partner-gold{background:#2d2510;color:#ffd700;border:1px solid rgba(255,215,0,.25)}
+    .status-active{background:rgba(16,185,129,.12);color:#10b981;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600}
+    .status-inactive{background:rgba(239,68,68,.12);color:#ef4444;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600}
+    .inline-edit{display:inline-flex;align-items:center;gap:4px}
+    .inline-edit input{width:60px;height:24px;font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:0 4px;color:var(--text-primary);text-align:right}
+    .inline-edit .ie-save{font-size:10px;padding:2px 6px;height:24px}
+    .radius-val{cursor:pointer;color:var(--accent);font-variant-numeric:tabular-nums}
+    .radius-val:hover{text-decoration:underline}
+    .actions-cell{white-space:nowrap}
+    .actions-cell .btn{height:26px;font-size:11px;padding:0 8px}
+    .dot-menu{position:relative;display:inline-block}
+    .dot-btn{background:none;border:1px solid var(--border);border-radius:4px;padding:2px 6px;cursor:pointer;font-size:14px;color:var(--text-secondary);line-height:1}
+    .dot-btn:hover{border-color:var(--accent);color:var(--accent)}
+    .dot-dropdown{position:absolute;right:0;top:100%;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:4px;z-index:50;display:none;min-width:140px;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+    .dot-dropdown.show{display:block}
+    .dot-dropdown button{display:block;width:100%;text-align:left;padding:6px 10px;font-size:12px;border:none;background:none;color:var(--text-primary);cursor:pointer;border-radius:4px}
+    .dot-dropdown button:hover{background:var(--bg)}
+
+    /* ── Map ───────────────────────────────────────────────────────── */
+    .map-container{flex:1;display:none;position:relative}
+    .map-container.show{display:block}
+    #venue-map{width:100%;height:100%}
+    .table-container.hide{display:none}
+    .leaflet-popup-content .popup-name{font-weight:600;font-size:14px;margin-bottom:4px}
+    .leaflet-popup-content .popup-addr{font-size:12px;color:#999;margin-bottom:6px}
+    .leaflet-popup-content .popup-meta{font-size:12px;margin-bottom:4px}
+
+    /* ── Pagination ────────────────────────────────────────────────── */
+    .pagination-bar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-top:1px solid var(--border);flex-shrink:0;background:var(--bg-card)}
+    .page-info{font-size:12px;color:var(--text-secondary)}
+    .page-nums{display:flex;align-items:center;gap:4px}
+    .page-btn{min-width:30px;height:30px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:6px;font-size:12px;background:none;color:var(--text-primary);cursor:pointer}
+    .page-btn:hover{border-color:var(--accent);color:var(--accent)}
+    .page-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+    .page-btn:disabled{opacity:.3;cursor:default;pointer-events:none}
+    .page-jump{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-secondary)}
+    .page-jump input{width:50px;height:28px;font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:0 6px;color:var(--text-primary);text-align:center}
+
+    /* ── Drawer ─────────────────────────────────────────────────────── */
+    .drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:900;display:none;opacity:0;transition:opacity .25s}
+    .drawer-overlay.show{display:block;opacity:1}
+    .drawer{position:fixed;top:0;right:-420px;width:420px;height:100vh;background:var(--bg-card);border-left:1px solid var(--border);z-index:901;display:flex;flex-direction:column;transition:right .3s ease;box-shadow:-8px 0 30px rgba(0,0,0,.3)}
+    .drawer.show{right:0}
+    .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)}
+    .drawer-head h3{margin:0;font-size:16px;font-weight:600}
+    .drawer-close{background:none;border:none;font-size:22px;color:var(--text-secondary);cursor:pointer;padding:0 4px}
+    .drawer-close:hover{color:var(--text-primary)}
+    .drawer-tabs{display:flex;border-bottom:1px solid var(--border)}
+    .drawer-tab{flex:1;padding:10px;text-align:center;font-size:12px;font-weight:500;cursor:pointer;color:var(--text-secondary);border-bottom:2px solid transparent;transition:all .15s}
+    .drawer-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+    .drawer-body{flex:1;overflow-y:auto;padding:20px}
+    .drawer-body .form-row{display:flex;gap:12px}
+    .drawer-body .form-row .form-group{flex:1}
+    .drawer-body .form-group{margin-bottom:14px}
+    .drawer-body .form-label{display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+    .drawer-body .form-input{width:100%;height:34px;font-size:13px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:0 10px;color:var(--text-primary);outline:none;box-sizing:border-box}
+    .drawer-body .form-input:focus{border-color:var(--accent)}
+    .drawer-body textarea.form-input{height:68px;padding:8px 10px;resize:vertical}
+    .drawer-body select.form-input{cursor:pointer}
+    .drawer-foot{padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
+    .drawer-foot .btn{height:34px}
+    /* toggle switch */
+    .toggle-sw{position:relative;width:42px;height:22px;display:inline-block}
+    .toggle-sw input{display:none}
+    .toggle-sw .sw-track{position:absolute;inset:0;background:var(--border);border-radius:11px;transition:background .2s;cursor:pointer}
+    .toggle-sw input:checked+.sw-track{background:#10b981}
+    .toggle-sw .sw-thumb{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .2s;pointer-events:none}
+    .toggle-sw input:checked~.sw-thumb{left:22px}
+    /* partner radio buttons */
+    .tier-radios{display:flex;gap:8px;flex-wrap:wrap}
+    .tier-radio{position:relative}
+    .tier-radio input{position:absolute;opacity:0}
+    .tier-radio span{display:inline-block;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:500;border:1px solid var(--border);cursor:pointer;transition:all .15s}
+    .tier-radio input:checked+span{border-color:var(--accent);background:rgba(99,102,241,.15);color:var(--accent)}
+    /* activity tab */
+    .act-stat{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
+    .act-stat .act-label{color:var(--text-secondary)}
+    .act-stat .act-val{color:var(--text-primary);font-weight:600}
+    .act-rooms{margin-top:12px}
+    .act-room{padding:8px 0;border-bottom:1px solid var(--border);font-size:12px}
+    .act-room .ar-status{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;text-transform:uppercase}
+    .ar-active{background:rgba(16,185,129,.12);color:#10b981}
+    .ar-closed{background:rgba(239,68,68,.08);color:#ef4444}
+    .ar-warming{background:rgba(245,158,11,.12);color:#f59e0b}
+    #drawer-map{height:300px;border-radius:8px;border:1px solid var(--border);margin-bottom:12px}
+
+    /* ── Spinner / Toast ───────────────────────────────────────────── */
+    .spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .empty-state{text-align:center;padding:48px 16px;color:var(--text-secondary);font-size:14px}
+
+    /* ── Leaflet overrides for dark theme ───────────────────────────── */
+    .leaflet-popup-content-wrapper{background:var(--bg-card)!important;color:var(--text-primary)!important;border:1px solid var(--border)!important;border-radius:10px!important;box-shadow:0 8px 24px rgba(0,0,0,.4)!important}
+    .leaflet-popup-tip{background:var(--bg-card)!important;border:1px solid var(--border)!important}
+    .marker-cluster{background:rgba(99,102,241,.3)!important}
+    .marker-cluster div{background:rgba(99,102,241,.7)!important;color:#fff!important;font-weight:600!important}
   </style>
 </head>
 <body>
@@ -51,203 +215,773 @@
     <header id="topbar">
       <div class="topbar-left">
         <button class="sidebar-toggle" onclick="document.getElementById('app-layout').classList.toggle('sidebar-open')">☰</button>
-        <h1 class="page-title">Venues <span class="venue-count" id="venue-count"></span></h1>
+        <h1 class="page-title">Venues</h1>
       </div>
       <div class="topbar-right">
+        <button class="btn btn-ghost btn-sm" onclick="exportCSV()">Export CSV</button>
         <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()"></button>
         <a href="/admin/logout" class="logout-btn">Logout</a>
       </div>
     </header>
-    <main class="main-content">
+    <main class="main-content" style="padding:0;display:flex;flex-direction:column;height:calc(100vh - 56px);overflow:hidden">
 
-      <!-- Filters + Category Chart -->
-      <div class="grid-3-1" style="margin-bottom:24px">
-        <div class="card">
-          <div class="card-header"><span class="card-title">Filters</span></div>
-          <div class="card-body">
-            <div class="filter-bar">
-              <input class="form-control" id="f-search" placeholder="Search venues..." style="flex:1;min-width:160px">
-              <select class="form-control" id="f-category" style="width:140px"><option value="">All Categories</option></select>
-              <select class="form-control" id="f-city" style="width:140px"><option value="">All Cities</option></select>
-              <select class="form-control" id="f-partner" style="width:140px">
-                <option value="">All Status</option>
-                <option value="true">Partners Only</option>
-                <option value="false">Non-Partners</option>
-              </select>
+      <!-- Stats Strip -->
+      <div class="stats-strip">
+        <div class="stat-card"><div class="stat-value" id="s-total">—</div><div class="stat-label">Total Venues</div></div>
+        <div class="stat-card"><div class="stat-value" id="s-active">—</div><div class="stat-label">Active</div></div>
+        <div class="stat-card"><div class="stat-value" id="s-partner">—</div><div class="stat-label">Partner Venues</div></div>
+        <div class="stat-card"><div class="stat-value" id="s-radius">—</div><div class="stat-label">Avg Radius (m)</div></div>
+      </div>
+
+      <!-- Filter Pills -->
+      <div class="filter-pills" id="filter-pills"></div>
+
+      <!-- Main Content Area -->
+      <div class="venues-layout" style="flex:1;min-height:0">
+        <!-- Filter Panel -->
+        <div class="filter-panel" id="filter-panel">
+          <div class="fp-header">
+            <h3>Filters <span class="fp-badge" id="fp-badge" style="display:none">0</span></h3>
+            <a class="fp-clear" onclick="clearAllFilters()">Clear all</a>
+          </div>
+          <!-- Search -->
+          <div class="fp-section">
+            <div class="fp-section-title">Search</div>
+            <input class="fp-search" id="f-search" placeholder="Search name or address...">
+          </div>
+          <!-- State -->
+          <div class="fp-section">
+            <div class="fp-section-title">State</div>
+            <div class="fp-checks" id="f-states"></div>
+            <span class="fp-show-more" id="f-states-more" style="display:none" onclick="toggleShowMore('states')">Show more</span>
+          </div>
+          <!-- City -->
+          <div class="fp-section">
+            <div class="fp-section-title">City</div>
+            <div class="fp-checks" id="f-cities"></div>
+            <span class="fp-show-more" id="f-cities-more" style="display:none" onclick="toggleShowMore('cities')">Show more</span>
+          </div>
+          <!-- Category -->
+          <div class="fp-section">
+            <div class="fp-section-title">Category</div>
+            <div class="fp-checks" id="f-categories"></div>
+          </div>
+          <!-- Partner Tier -->
+          <div class="fp-section">
+            <div class="fp-section-title">Partner Tier</div>
+            <div class="fp-radio" id="f-tier">
+              <label><input type="radio" name="tier" value="" checked onchange="applyFilters()"> All</label>
+              <label><input type="radio" name="tier" value="none" onchange="applyFilters()"> None</label>
+              <label><input type="radio" name="tier" value="bronze" onchange="applyFilters()"> 🥉 Bronze</label>
+              <label><input type="radio" name="tier" value="silver" onchange="applyFilters()"> 🥈 Silver</label>
+              <label><input type="radio" name="tier" value="gold" onchange="applyFilters()"> 🥇 Gold</label>
+              <label><input type="radio" name="tier" value="any_partner" onchange="applyFilters()"> Any Partner</label>
+            </div>
+          </div>
+          <!-- Status -->
+          <div class="fp-section">
+            <div class="fp-section-title">Status</div>
+            <div class="fp-radio">
+              <label><input type="radio" name="status" value="true" checked onchange="applyFilters()"> Active Only</label>
+              <label><input type="radio" name="status" value="false" onchange="applyFilters()"> Inactive Only</label>
+              <label><input type="radio" name="status" value="all" onchange="applyFilters()"> All</label>
+            </div>
+          </div>
+          <!-- Geofence Radius -->
+          <div class="fp-section">
+            <div class="fp-section-title">Geofence Radius</div>
+            <div class="range-labels"><span id="r-min-label">25 m</span><span id="r-max-label">1000 m</span></div>
+            <div class="range-wrap">
+              <div class="range-track"></div>
+              <div class="range-fill" id="range-fill"></div>
+              <input type="range" id="r-min" min="25" max="1000" value="25" step="5" oninput="updateRange()">
+              <input type="range" id="r-max" min="25" max="1000" value="1000" step="5" oninput="updateRange()">
             </div>
           </div>
         </div>
-        <div class="card">
-          <div class="card-header"><span class="card-title">Categories</span></div>
-          <div class="card-body" style="padding:8px 12px;display:flex;align-items:center;justify-content:center">
-            <canvas id="cat-chart" height="120" style="max-height:120px"></canvas>
+
+        <!-- Results -->
+        <div class="results-area">
+          <!-- Toolbar -->
+          <div class="toolbar">
+            <div class="view-tabs">
+              <div class="view-tab active" data-view="table" onclick="setView('table')">Table</div>
+              <div class="view-tab" data-view="map" onclick="setView('map')">Map</div>
+            </div>
+            <div class="toolbar-spacer"></div>
+          </div>
+
+          <!-- Bulk Bar -->
+          <div class="bulk-bar" id="bulk-bar">
+            <span class="bulk-count" id="bulk-count">0 selected</span>
+            <button class="btn btn-ghost btn-sm" onclick="bulkAction('activate')">Activate</button>
+            <button class="btn btn-ghost btn-sm" onclick="bulkAction('deactivate')">Deactivate</button>
+            <div class="bulk-tier-wrap">
+              <button class="btn btn-ghost btn-sm" onclick="toggleBulkTierMenu()">Set Tier ▾</button>
+              <div class="bulk-tier-menu" id="bulk-tier-menu">
+                <button onclick="bulkAction('set_partner_tier','bronze')">🥉 Bronze</button>
+                <button onclick="bulkAction('set_partner_tier','silver')">🥈 Silver</button>
+                <button onclick="bulkAction('set_partner_tier','gold')">🥇 Gold</button>
+                <button onclick="bulkAction('set_partner_tier','')">Remove Tier</button>
+              </div>
+            </div>
+            <input class="bulk-radius-input" id="bulk-radius" type="number" placeholder="Radius m" min="10" max="5000">
+            <button class="btn btn-ghost btn-sm" onclick="bulkAction('set_radius',document.getElementById('bulk-radius').value)">Set Radius</button>
+            <button class="btn btn-ghost btn-sm" onclick="exportCSV(true)">Export CSV</button>
+            <div style="flex:1"></div>
+            <button class="btn btn-ghost btn-sm" onclick="clearSelection()">✕ Clear</button>
+          </div>
+
+          <!-- Table View -->
+          <div class="table-container" id="table-container">
+            <table id="venues-table">
+              <thead>
+                <tr>
+                  <th style="width:36px"><input type="checkbox" id="select-all" onchange="toggleSelectAll()"></th>
+                  <th class="sortable" data-col="name">Venue</th>
+                  <th class="sortable" data-col="category">Category</th>
+                  <th class="sortable" data-col="city">Location</th>
+                  <th class="sortable" data-col="geofence_radius_m">Radius</th>
+                  <th>Partner</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="venues-tbody">
+                <tr><td colspan="8" class="empty-state"><div class="spinner"></div> Loading venues...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Map View -->
+          <div class="map-container" id="map-container">
+            <div id="venue-map"></div>
+          </div>
+
+          <!-- Pagination -->
+          <div class="pagination-bar" id="pagination-bar">
+            <span class="page-info" id="page-info">Showing 0 venues</span>
+            <div class="page-nums" id="page-nums"></div>
+            <div class="page-jump">
+              Go to: <input id="page-jump" type="number" min="1" onkeydown="if(event.key==='Enter')jumpToPage()">
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Venue Table -->
-      <div class="card">
-        <div class="card-header"><span class="card-title">All Venues</span></div>
-        <div class="table-wrap">
-          <table id="venues-table">
-            <thead>
-              <tr>
-                <th class="sortable" data-col="name">Name</th>
-                <th class="sortable" data-col="category">Category</th>
-                <th class="sortable" data-col="city">City</th>
-                <th>State</th>
-                <th class="sortable" data-col="geofence_radius_m">Radius</th>
-                <th>Partner</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="venues-tbody">
-              <tr><td colspan="7"><div class="skeleton skeleton-row"></div></td></tr>
-              <tr><td colspan="7"><div class="skeleton skeleton-row"></div></td></tr>
-            </tbody>
-          </table>
-        </div>
-        <div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border)">
-          <span id="page-info" style="font-size:12px;color:var(--text-secondary)"></span>
-          <div style="display:flex;gap:6px">
-            <button class="btn btn-ghost btn-sm" id="prev-btn" onclick="changePage(-1)" disabled>← Prev</button>
-            <button class="btn btn-ghost btn-sm" id="next-btn" onclick="changePage(1)">Next →</button>
-          </div>
-        </div>
-      </div>
     </main>
   </div>
 </div>
 
-<!-- Edit Geofence Modal -->
-<div class="modal-overlay" id="edit-modal">
-  <div class="modal">
-    <h3>Edit Geofence Radius</h3>
-    <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px" id="edit-venue-name"></p>
-    <div class="form-group" style="margin:0 0 16px">
-      <label class="form-label">Radius (meters)</label>
-      <input class="form-control" id="edit-radius" type="number" min="10" max="5000">
-    </div>
-    <div style="display:flex;gap:8px;justify-content:flex-end">
-      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveGeofence()">Save</button>
-    </div>
+<!-- Drawer Overlay -->
+<div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
+
+<!-- Venue Detail Drawer -->
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <h3 id="drawer-title">Edit Venue</h3>
+    <button class="drawer-close" onclick="closeDrawer()">×</button>
+  </div>
+  <div class="drawer-tabs">
+    <div class="drawer-tab active" data-tab="details" onclick="setDrawerTab('details')">Details</div>
+    <div class="drawer-tab" data-tab="activity" onclick="setDrawerTab('activity')">Activity</div>
+    <div class="drawer-tab" data-tab="map" onclick="setDrawerTab('map')">Map</div>
+  </div>
+  <div class="drawer-body" id="drawer-body"></div>
+  <div class="drawer-foot" id="drawer-foot">
+    <button class="btn btn-ghost" onclick="closeDrawer()">Cancel</button>
+    <button class="btn btn-primary" id="drawer-save" onclick="saveVenue()">Save Changes</button>
   </div>
 </div>
 
 <div id="toast-container"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script>
+/* ── Theme ──────────────────────────────────────────────────────────────── */
 function toggleTheme(){const t=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',t);localStorage.setItem('ns-theme',t);document.getElementById('theme-toggle').textContent=t==='dark'?'☀️':'🌙';}
 (function(){const t=localStorage.getItem('ns-theme')||'dark';document.documentElement.setAttribute('data-theme',t);document.getElementById('theme-toggle').textContent=t==='dark'?'☀️':'🌙';document.querySelector('.sidebar-overlay').onclick=()=>document.getElementById('app-layout').classList.remove('sidebar-open');})();
-function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):''}
-function toast(msg,type='success'){const c=document.getElementById('toast-container');const el=document.createElement('div');el.className='toast toast-'+type;el.innerHTML='<div class="toast-icon">'+(type==='success'?'✓':'✕')+'</div><div class="toast-msg">'+msg+'</div>';c.appendChild(el);requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.add('show')));setTimeout(()=>{el.classList.remove('show');setTimeout(()=>el.remove(),350)},3500);}
 
-let allVenues=[], page=1, total=0, sortCol='name', sortDir='asc', catChart=null, editingId=null;
+/* ── Utilities ──────────────────────────────────────────────────────────── */
+function esc(s){return s==null?'':String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function toast(msg,type='success'){const c=document.getElementById('toast-container');const el=document.createElement('div');el.className='toast toast-'+type;el.innerHTML='<div class="toast-icon">'+(type==='success'?'✓':'✕')+'</div><div class="toast-msg">'+esc(msg)+'</div>';c.appendChild(el);requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.add('show')));setTimeout(()=>{el.classList.remove('show');setTimeout(()=>el.remove(),350)},3500);}
+function timeAgo(d){if(!d)return '—';const s=Math.floor((Date.now()-new Date(d))/1000);if(s<60)return s+'s ago';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago';}
+function fmtNum(n){return n==null?'—':n.toLocaleString();}
 
-function buildQuery(){
+const ICONS={restaurant:'🍽️',fast_food:'🍔',cafe:'☕',bar:'🍸',pub:'🍺',theatre:'🎭',cinema:'🎬',pitch:'⚽',marketplace:'🛒',food_court:'🥡',arts_centre:'🎨',sports_centre:'🏅',events_venue:'🎪',nightclub:'🪩',stadium:'🏟️'};
+const CAT_COLORS={restaurant:'#ef4444',fast_food:'#f97316',cafe:'#a16207',bar:'#8b5cf6',pub:'#6366f1',theatre:'#ec4899',cinema:'#f43f5e',pitch:'#22c55e',marketplace:'#14b8a6',food_court:'#f59e0b',arts_centre:'#d946ef',sports_centre:'#06b6d4',events_venue:'#0ea5e9',nightclub:'#a855f7',stadium:'#10b981'};
+function catIcon(c){return ICONS[c]||'📍';}
+function catColor(c){return CAT_COLORS[c]||'#6366f1';}
+
+/* ── State ──────────────────────────────────────────────────────────────── */
+let venues=[], filterData=null, total=0, pages=1, currentPage=1, limit=50;
+let sortCol='name', sortDir='asc';
+let selectedIds=new Set();
+let currentView=localStorage.getItem('hv-view')||'table';
+let editingVenue=null;
+let map=null, markerLayer=null, geofenceCircle=null;
+let drawerMap=null, drawerMarker=null, drawerCircle=null;
+let showMoreStates=false, showMoreCities=false;
+let refreshTimer=null;
+
+/* ── Filter Helpers ─────────────────────────────────────────────────────── */
+function getChecked(containerId){return [...document.querySelectorAll(`#${containerId} input:checked`)].map(i=>i.value);}
+function getRadio(name){const el=document.querySelector(`input[name="${name}"]:checked`);return el?el.value:'';}
+
+function getFilterParams(){
   const p=new URLSearchParams();
-  const s=document.getElementById('f-search').value.trim();
-  const cat=document.getElementById('f-category').value;
-  const city=document.getElementById('f-city').value;
-  const partner=document.getElementById('f-partner').value;
-  if(s)p.set('search',s);if(cat)p.set('category',cat);if(city)p.set('city',city);if(partner)p.set('partner',partner);
-  p.set('page',page);
-  return p.toString();
+  const q=document.getElementById('f-search').value.trim();
+  if(q)p.set('q',q);
+  const states=getChecked('f-states');if(states.length)p.set('state',states.join(','));
+  const cities=getChecked('f-cities');if(cities.length)p.set('city',cities.join(','));
+  const cats=getChecked('f-categories');if(cats.length)p.set('category',cats.join(','));
+  const tier=getRadio('tier');if(tier)p.set('partner_tier',tier);
+  const status=getRadio('status');if(status&&status!=='true')p.set('active',status);
+  const rmin=parseInt(document.getElementById('r-min').value);
+  const rmax=parseInt(document.getElementById('r-max').value);
+  if(rmin>25)p.set('radius_min',rmin);
+  if(rmax<1000)p.set('radius_max',rmax);
+  p.set('page',currentPage);
+  p.set('limit',currentView==='map'?500:limit);
+  p.set('sort',sortCol);
+  p.set('dir',sortDir);
+  return p;
 }
 
-function render(){
+function countActiveFilters(){
+  let n=0;
+  if(document.getElementById('f-search').value.trim())n++;
+  if(getChecked('f-states').length)n++;
+  if(getChecked('f-cities').length)n++;
+  if(getChecked('f-categories').length)n++;
+  if(getRadio('tier'))n++;
+  if(getRadio('status')!=='true')n++;
+  if(parseInt(document.getElementById('r-min').value)>25||parseInt(document.getElementById('r-max').value)<1000)n++;
+  return n;
+}
+
+function applyFilters(){currentPage=1;loadVenues();}
+
+function clearAllFilters(){
+  document.getElementById('f-search').value='';
+  document.querySelectorAll('#f-states input,#f-cities input,#f-categories input').forEach(i=>i.checked=false);
+  document.querySelector('input[name="tier"][value=""]').checked=true;
+  document.querySelector('input[name="status"][value="true"]').checked=true;
+  document.getElementById('r-min').value=25;
+  document.getElementById('r-max').value=1000;
+  updateRange();
+  applyFilters();
+}
+
+/* ── Range Slider ───────────────────────────────────────────────────────── */
+function updateRange(){
+  let lo=parseInt(document.getElementById('r-min').value);
+  let hi=parseInt(document.getElementById('r-max').value);
+  if(lo>hi){const t=lo;lo=hi;hi=t;document.getElementById('r-min').value=lo;document.getElementById('r-max').value=hi;}
+  document.getElementById('r-min-label').textContent=lo+' m';
+  document.getElementById('r-max-label').textContent=hi+' m';
+  const pct=v=>(v-25)/(1000-25)*100;
+  document.getElementById('range-fill').style.left=pct(lo)+'%';
+  document.getElementById('range-fill').style.width=(pct(hi)-pct(lo))+'%';
+}
+updateRange();
+
+/* ── Show More ──────────────────────────────────────────────────────────── */
+function toggleShowMore(type){
+  if(type==='states'){showMoreStates=!showMoreStates;renderFilterStates();}
+  else{showMoreCities=!showMoreCities;renderFilterCities();}
+}
+
+/* ── Fetch Filters ──────────────────────────────────────────────────────── */
+async function loadFilterData(){
+  try{
+    filterData=await fetch('/admin/api/hereya/venues/filters').then(r=>r.json());
+    renderFilterStates();renderFilterCities();renderFilterCategories();
+  }catch(e){console.error('Filter load error',e);}
+}
+
+function renderFilterStates(){
+  if(!filterData)return;
+  const el=document.getElementById('f-states');
+  const checked=getChecked('f-states');
+  const items=filterData.states||[];
+  const visible=showMoreStates?items:items.slice(0,10);
+  el.innerHTML=visible.map(s=>`<label class="fp-check"><input type="checkbox" value="${esc(s.value)}" ${checked.includes(s.value)?'checked':''} onchange="onStateChange()"><span>${esc(s.value)}</span><span class="fp-count">${s.count}</span></label>`).join('');
+  const more=document.getElementById('f-states-more');
+  more.style.display=items.length>10?'':'none';
+  more.textContent=showMoreStates?'Show less':'Show more ('+items.length+')';
+}
+
+function renderFilterCities(){
+  if(!filterData)return;
+  const el=document.getElementById('f-cities');
+  const checked=getChecked('f-cities');
+  const selectedStates=getChecked('f-states');
+  let items=filterData.cities||[];
+  if(selectedStates.length)items=items.filter(c=>selectedStates.includes(c.state));
+  const visible=showMoreCities?items:items.slice(0,10);
+  el.innerHTML=visible.map(c=>`<label class="fp-check"><input type="checkbox" value="${esc(c.value)}" ${checked.includes(c.value)?'checked':''} onchange="applyFilters()"><span>${esc(c.value)}</span><span class="fp-count">${c.count}</span></label>`).join('');
+  const more=document.getElementById('f-cities-more');
+  more.style.display=items.length>10?'':'none';
+  more.textContent=showMoreCities?'Show less':'Show more ('+items.length+')';
+}
+
+function renderFilterCategories(){
+  if(!filterData)return;
+  const el=document.getElementById('f-categories');
+  const checked=getChecked('f-categories');
+  el.innerHTML=(filterData.categories||[]).map(c=>`<label class="fp-check"><input type="checkbox" value="${esc(c.value)}" ${checked.includes(c.value)?'checked':''} onchange="applyFilters()"><span>${c.icon} ${esc(c.value)}</span><span class="fp-count">${c.count}</span></label>`).join('');
+}
+
+function onStateChange(){renderFilterCities();applyFilters();}
+
+/* ── Load Venues ────────────────────────────────────────────────────────── */
+async function loadVenues(){
+  try{
+    const params=getFilterParams();
+    const data=await fetch('/admin/api/hereya/venues?'+params.toString()).then(r=>r.json());
+    venues=data.venues||[];
+    total=data.total||0;
+    pages=data.pages||1;
+    currentPage=data.page||1;
+    renderTable();
+    renderPagination();
+    renderStats();
+    renderPills();
+    updateBadge();
+    if(currentView==='map')renderMap();
+  }catch(e){console.error(e);toast('Failed to load venues','error');}
+}
+
+/* ── Stats ──────────────────────────────────────────────────────────────── */
+function renderStats(){
+  document.getElementById('s-total').textContent=fmtNum(total);
+  const active=venues.filter(v=>v.is_active).length;
+  document.getElementById('s-active').textContent=currentView==='map'||total<=venues.length?fmtNum(active):'~'+fmtNum(active);
+  const partners=venues.filter(v=>v.partner_tier).length;
+  document.getElementById('s-partner').textContent=currentView==='map'||total<=venues.length?fmtNum(partners):'~'+fmtNum(partners);
+  const radii=venues.filter(v=>v.geofence_radius_m).map(v=>v.geofence_radius_m);
+  const avg=radii.length?Math.round(radii.reduce((a,b)=>a+b,0)/radii.length):0;
+  document.getElementById('s-radius').textContent=avg?avg+'m':'—';
+}
+
+/* ── Filter Pills ───────────────────────────────────────────────────────── */
+function renderPills(){
+  const el=document.getElementById('filter-pills');
+  const pills=[];
+  const q=document.getElementById('f-search').value.trim();
+  if(q)pills.push({label:'Search: '+q,clear:()=>{document.getElementById('f-search').value='';applyFilters();}});
+  const states=getChecked('f-states');
+  if(states.length)pills.push({label:'State: '+states.join(', '),clear:()=>{document.querySelectorAll('#f-states input').forEach(i=>i.checked=false);onStateChange();}});
+  const cities=getChecked('f-cities');
+  if(cities.length)pills.push({label:'City: '+cities.join(', '),clear:()=>{document.querySelectorAll('#f-cities input').forEach(i=>i.checked=false);applyFilters();}});
+  const cats=getChecked('f-categories');
+  if(cats.length)pills.push({label:'Category: '+cats.join(', '),clear:()=>{document.querySelectorAll('#f-categories input').forEach(i=>i.checked=false);applyFilters();}});
+  const tier=getRadio('tier');
+  if(tier)pills.push({label:'Tier: '+tier,clear:()=>{document.querySelector('input[name="tier"][value=""]').checked=true;applyFilters();}});
+  const status=getRadio('status');
+  if(status!=='true')pills.push({label:'Status: '+(status==='false'?'Inactive':'All'),clear:()=>{document.querySelector('input[name="status"][value="true"]').checked=true;applyFilters();}});
+  const rmin=parseInt(document.getElementById('r-min').value),rmax=parseInt(document.getElementById('r-max').value);
+  if(rmin>25||rmax<1000)pills.push({label:'Radius: '+rmin+'–'+rmax+'m',clear:()=>{document.getElementById('r-min').value=25;document.getElementById('r-max').value=1000;updateRange();applyFilters();}});
+  el.innerHTML=pills.map((_,i)=>`<span class="filter-pill">${esc(_.label)} <span class="pill-x" data-idx="${i}">✕</span></span>`).join('');
+  el.querySelectorAll('.pill-x').forEach(x=>x.onclick=()=>pills[parseInt(x.dataset.idx)].clear());
+}
+
+function updateBadge(){
+  const n=countActiveFilters();
+  const badge=document.getElementById('fp-badge');
+  badge.style.display=n?'':'none';
+  badge.textContent=n;
+}
+
+/* ── Table Rendering ────────────────────────────────────────────────────── */
+function renderTable(){
   const tb=document.getElementById('venues-tbody');
-  if(!allVenues.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted)">No venues found</td></tr>';return;}
-  const sorted=[...allVenues].sort((a,b)=>{
-    let va=a[sortCol]||'',vb=b[sortCol]||'';
-    if(typeof va==='number')return sortDir==='asc'?va-vb:vb-va;
-    if(typeof va==='string')va=va.toLowerCase();if(typeof vb==='string')vb=vb.toLowerCase();
-    if(va<vb)return sortDir==='asc'?-1:1;if(va>vb)return sortDir==='asc'?1:-1;return 0;
-  });
-  tb.innerHTML=sorted.map(v=>`<tr>
-    <td><strong>${esc(v.name)}</strong></td>
-    <td style="text-transform:capitalize">${esc(v.category)}</td>
-    <td>${esc(v.city)}</td>
-    <td>${esc(v.state||'')}</td>
-    <td class="td-mono">${v.geofence_radius_m||100}m</td>
-    <td>${v.is_partner?'<span class="partner-pill">PARTNER</span>':'<span class="td-muted">—</span>'}</td>
-    <td style="white-space:nowrap">
-      <button class="toggle-btn ${v.is_partner?'on':''}" onclick="togglePartner('${v.id}')">${v.is_partner?'Remove Partner':'Make Partner'}</button>
-      <button class="btn btn-ghost btn-xs" onclick="openEdit('${v.id}','${esc(v.name)}',${v.geofence_radius_m||100})">Edit</button>
-    </td>
-  </tr>`).join('');
-  document.querySelectorAll('th.sortable').forEach(th=>{th.classList.remove('asc','desc');if(th.dataset.col===sortCol)th.classList.add(sortDir);});
+  if(!venues.length){tb.innerHTML='<tr><td colspan="8" class="empty-state">No venues found</td></tr>';return;}
+  tb.innerHTML=venues.map(v=>{
+    const checked=selectedIds.has(v.id)?'checked':'';
+    const tierClass=v.partner_tier?'partner-'+v.partner_tier:'partner-none';
+    const tierText=v.partner_tier?v.partner_tier.toUpperCase():'—';
+    const statusClass=v.is_active?'status-active':'status-inactive';
+    const statusText=v.is_active?'Active':'Inactive';
+    return `<tr data-id="${v.id}">
+      <td><input type="checkbox" class="row-check" value="${v.id}" ${checked} onchange="onRowCheck(this)"></td>
+      <td><div class="venue-name">${esc(v.name)}</div><div class="venue-addr">${esc(v.address||'')}</div></td>
+      <td><span class="cat-badge" style="background:${catColor(v.category)}20;color:${catColor(v.category)}">${catIcon(v.category)} ${esc(v.category||'')}</span></td>
+      <td>${esc(v.city||'')}${v.state?', '+esc(v.state):''}</td>
+      <td><span class="radius-val" onclick="inlineEditRadius(this,'${v.id}',${v.geofence_radius_m||100})">${v.geofence_radius_m||100}m</span></td>
+      <td><span class="${tierClass} partner-badge">${tierText}</span></td>
+      <td><span class="${statusClass}">${statusText}</span></td>
+      <td class="actions-cell">
+        <button class="btn btn-ghost btn-sm" onclick="openDrawer('${v.id}')">Edit</button>
+        <div class="dot-menu"><button class="dot-btn" onclick="toggleDotMenu(this)">⋮</button>
+          <div class="dot-dropdown">
+            <button onclick="showOnMap('${v.id}')">View on Map</button>
+            <button onclick="copyCoords('${v.id}')">Copy Coords</button>
+            <button onclick="viewActivity('${v.id}')">View Activity</button>
+          </div>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+  // sort indicators
+  document.querySelectorAll('#venues-table th.sortable').forEach(th=>{th.classList.remove('sort-asc','sort-desc');if(th.dataset.col===sortCol)th.classList.add('sort-'+sortDir);});
 }
 
-function updatePageInfo(){
-  document.getElementById('venue-count').textContent=`(Showing ${allVenues.length} of ${total})`;
-  document.getElementById('page-info').textContent=`Page ${page}`;
-  document.getElementById('prev-btn').disabled=page<=1;
-  document.getElementById('next-btn').disabled=allVenues.length<50;
+/* ── Inline Radius Edit ─────────────────────────────────────────────────── */
+function inlineEditRadius(el,id,val){
+  el.outerHTML=`<span class="inline-edit"><input type="number" value="${val}" min="10" max="5000" id="ie-${id}"><button class="btn btn-primary ie-save" onclick="saveInlineRadius('${id}')">✓</button></span>`;
+  document.getElementById('ie-'+id).focus();
+  document.getElementById('ie-'+id).onkeydown=e=>{if(e.key==='Enter')saveInlineRadius(id);if(e.key==='Escape')loadVenues();};
 }
-
-function changePage(d){page=Math.max(1,page+d);load();}
-
-async function load(){
+async function saveInlineRadius(id){
+  const val=parseInt(document.getElementById('ie-'+id).value);
+  if(!val||val<10){toast('Radius must be >= 10m','error');return;}
   try{
-    const data=await fetch('/admin/api/hereya/venues?'+buildQuery()).then(r=>r.json());
-    allVenues=data.venues||[];
-    total=data.total||allVenues.length;
-    render();updatePageInfo();buildFilters(allVenues);buildCatChart(allVenues);
-  }catch(e){console.error(e);}
-}
-
-function buildFilters(venues){
-  const cats=new Set(),cities=new Set();
-  venues.forEach(v=>{if(v.category)cats.add(v.category);if(v.city)cities.add(v.city);});
-  const catSel=document.getElementById('f-category');const curCat=catSel.value;
-  catSel.innerHTML='<option value="">All Categories</option>'+[...cats].sort().map(c=>`<option value="${esc(c)}" ${c===curCat?'selected':''}>${esc(c)}</option>`).join('');
-  const citySel=document.getElementById('f-city');const curCity=citySel.value;
-  citySel.innerHTML='<option value="">All Cities</option>'+[...cities].sort().map(c=>`<option value="${esc(c)}" ${c===curCity?'selected':''}>${esc(c)}</option>`).join('');
-}
-
-function buildCatChart(venues){
-  const counts={};
-  venues.forEach(v=>{const c=v.category||'other';counts[c]=(counts[c]||0)+1;});
-  const labels=Object.keys(counts);const data=Object.values(counts);
-  const colors=['#6366f1','#06b6d4','#10b981','#f59e0b','#ef4444','#ec4899','#8b5cf6','#14b8a6'];
-  const ctx=document.getElementById('cat-chart').getContext('2d');
-  if(catChart)catChart.destroy();
-  catChart=new Chart(ctx,{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:colors.slice(0,labels.length)}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:getComputedStyle(document.documentElement).getPropertyValue('--text-secondary')||'#94a3b8',font:{size:10},boxWidth:10}}}}});
-}
-
-async function togglePartner(id){
-  try{
-    const r=await fetch('/admin/api/hereya/venues/'+id+'/partner',{method:'PATCH'});
-    const d=await r.json();
-    if(d.ok){const v=allVenues.find(x=>x.id===id);if(v)v.is_partner=d.is_partner;render();toast(d.is_partner?'Partner added':'Partner removed');}
+    await fetch('/admin/api/hereya/venues/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({geofence_radius_m:val})});
+    toast('Radius updated');loadVenues();
   }catch(e){toast('Failed','error');}
 }
 
-function openEdit(id,name,radius){editingId=id;document.getElementById('edit-venue-name').textContent=name;document.getElementById('edit-radius').value=radius;document.getElementById('edit-modal').classList.add('show');}
-function closeModal(){document.getElementById('edit-modal').classList.remove('show');editingId=null;}
-async function saveGeofence(){
-  const radius=parseInt(document.getElementById('edit-radius').value);
-  if(!radius||radius<10){toast('Radius must be >= 10m','error');return;}
-  try{
-    await fetch('/admin/api/hereya/venues/'+editingId+'/geofence',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({geofence_radius_m:radius})});
-    const v=allVenues.find(x=>x.id===editingId);if(v)v.geofence_radius_m=radius;
-    render();closeModal();toast('Geofence updated');
-  }catch(e){toast('Failed','error');}
-}
-
-document.querySelectorAll('th.sortable').forEach(th=>{
-  th.onclick=()=>{if(sortCol===th.dataset.col){sortDir=sortDir==='asc'?'desc':'asc';}else{sortCol=th.dataset.col;sortDir='asc';}render();};
+/* ── Sorting ────────────────────────────────────────────────────────────── */
+document.querySelectorAll('#venues-table th.sortable').forEach(th=>{
+  th.onclick=()=>{
+    if(sortCol===th.dataset.col){sortDir=sortDir==='asc'?'desc':'asc';}
+    else{sortCol=th.dataset.col;sortDir='asc';}
+    currentPage=1;loadVenues();
+  };
 });
 
-let searchTimer;
-document.getElementById('f-search').oninput=()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>{page=1;load();},300);};
-document.getElementById('f-category').onchange=()=>{page=1;load();};
-document.getElementById('f-city').onchange=()=>{page=1;load();};
-document.getElementById('f-partner').onchange=()=>{page=1;load();};
-document.getElementById('edit-modal').onclick=e=>{if(e.target===document.getElementById('edit-modal'))closeModal();};
+/* ── Selection ──────────────────────────────────────────────────────────── */
+function onRowCheck(cb){
+  if(cb.checked)selectedIds.add(cb.value);else selectedIds.delete(cb.value);
+  updateBulkBar();
+}
+function toggleSelectAll(){
+  const checked=document.getElementById('select-all').checked;
+  document.querySelectorAll('.row-check').forEach(cb=>{cb.checked=checked;if(checked)selectedIds.add(cb.value);else selectedIds.delete(cb.value);});
+  updateBulkBar();
+}
+function clearSelection(){selectedIds.clear();document.getElementById('select-all').checked=false;document.querySelectorAll('.row-check').forEach(cb=>cb.checked=false);updateBulkBar();}
+function updateBulkBar(){
+  const bar=document.getElementById('bulk-bar');
+  if(selectedIds.size){bar.classList.add('show');document.getElementById('bulk-count').textContent=selectedIds.size+' selected';}
+  else bar.classList.remove('show');
+}
 
-load();
+/* ── Bulk Actions ───────────────────────────────────────────────────────── */
+function toggleBulkTierMenu(){document.getElementById('bulk-tier-menu').classList.toggle('show');}
+async function bulkAction(action,value){
+  document.getElementById('bulk-tier-menu').classList.remove('show');
+  if(!selectedIds.size)return;
+  if(action==='set_radius'&&(!value||parseInt(value)<10)){toast('Enter valid radius','error');return;}
+  try{
+    const r=await fetch('/admin/api/hereya/venues/bulk',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:[...selectedIds],action,value})});
+    const d=await r.json();
+    if(d.ok){toast(`Updated ${d.updated} venues`);clearSelection();loadVenues();}
+    else toast(d.error||'Failed','error');
+  }catch(e){toast('Bulk action failed','error');}
+}
+
+/* ── Pagination ─────────────────────────────────────────────────────────── */
+function renderPagination(){
+  const start=(currentPage-1)*limit+1;
+  const end=Math.min(currentPage*limit,total);
+  document.getElementById('page-info').textContent=total?`Showing ${start}–${end} of ${fmtNum(total)} venues`:'No venues';
+  const container=document.getElementById('page-nums');
+  if(pages<=1){container.innerHTML='';return;}
+  let btns=[];
+  btns.push(`<button class="page-btn" ${currentPage<=1?'disabled':''} onclick="goPage(${currentPage-1})">◀</button>`);
+  const slots=buildPageSlots(currentPage,pages,7);
+  for(const s of slots){
+    if(s==='...') btns.push('<span style="color:var(--text-secondary);padding:0 4px">…</span>');
+    else btns.push(`<button class="page-btn ${s===currentPage?'active':''}" onclick="goPage(${s})">${s}</button>`);
+  }
+  btns.push(`<button class="page-btn" ${currentPage>=pages?'disabled':''} onclick="goPage(${currentPage+1})">▶</button>`);
+  container.innerHTML=btns.join('');
+}
+function buildPageSlots(cur,tot,max){
+  if(tot<=max)return Array.from({length:tot},(_,i)=>i+1);
+  const slots=[];const half=Math.floor((max-2)/2);
+  slots.push(1);
+  let start=Math.max(2,cur-half),end=Math.min(tot-1,cur+half);
+  if(cur-half<=2)end=Math.min(tot-1,max-2);
+  if(cur+half>=tot-1)start=Math.max(2,tot-max+2);
+  if(start>2)slots.push('...');
+  for(let i=start;i<=end;i++)slots.push(i);
+  if(end<tot-1)slots.push('...');
+  slots.push(tot);
+  return slots;
+}
+function goPage(p){if(p>=1&&p<=pages){currentPage=p;loadVenues();}}
+function jumpToPage(){const v=parseInt(document.getElementById('page-jump').value);if(v>=1&&v<=pages)goPage(v);}
+
+/* ── View Toggle ────────────────────────────────────────────────────────── */
+function setView(v){
+  currentView=v;
+  localStorage.setItem('hv-view',v);
+  document.querySelectorAll('.view-tab').forEach(t=>t.classList.toggle('active',t.dataset.view===v));
+  document.getElementById('table-container').classList.toggle('hide',v==='map');
+  document.getElementById('map-container').classList.toggle('show',v==='map');
+  document.getElementById('pagination-bar').style.display=v==='map'?'none':'';
+  if(v==='map'){loadVenues();}
+}
+
+/* ── Map ────────────────────────────────────────────────────────────────── */
+function initMap(){
+  if(map)return;
+  map=L.map('venue-map',{zoomControl:true}).setView([40.7,-74],5);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors © CARTO'}).addTo(map);
+  markerLayer=L.markerClusterGroup({maxClusterRadius:50,spiderfyOnMaxZoom:true});
+  map.addLayer(markerLayer);
+}
+function renderMap(){
+  initMap();
+  markerLayer.clearLayers();
+  if(geofenceCircle){map.removeLayer(geofenceCircle);geofenceCircle=null;}
+  const bounds=[];
+  for(const v of venues){
+    if(!v.latitude||!v.longitude)continue;
+    const color=catColor(v.category);
+    const icon=L.divIcon({html:`<div style="width:12px;height:12px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`,className:'',iconSize:[16,16],iconAnchor:[8,8]});
+    const marker=L.marker([v.latitude,v.longitude],{icon});
+    const tierBadge=v.partner_tier?`<span class="partner-badge partner-${v.partner_tier}" style="font-size:10px;padding:1px 6px">${v.partner_tier.toUpperCase()}</span>`:'';
+    marker.bindPopup(`<div><div class="popup-name">${esc(v.name)}</div><div class="popup-addr">${esc(v.address||'')}</div><div class="popup-meta">${catIcon(v.category)} ${esc(v.category)} · ${v.geofence_radius_m||100}m radius ${tierBadge}</div><button class="btn btn-primary btn-sm" style="margin-top:8px;width:100%;height:28px;font-size:11px" onclick="openDrawer('${v.id}')">Edit Venue</button></div>`,{maxWidth:260});
+    marker.on('click',()=>{
+      if(geofenceCircle){map.removeLayer(geofenceCircle);geofenceCircle=null;}
+      geofenceCircle=L.circle([v.latitude,v.longitude],{radius:v.geofence_radius_m||100,color,fillColor:color,fillOpacity:0.12,weight:1.5,dashArray:'4 4'}).addTo(map);
+    });
+    markerLayer.addLayer(marker);
+    bounds.push([v.latitude,v.longitude]);
+  }
+  if(bounds.length)map.fitBounds(bounds,{padding:[30,30],maxZoom:14});
+}
+
+function showOnMap(id){
+  const v=venues.find(x=>x.id===id);
+  if(!v||!v.latitude)return toast('No coordinates','error');
+  setView('map');
+  setTimeout(()=>{
+    map.setView([v.latitude,v.longitude],16);
+    if(geofenceCircle){map.removeLayer(geofenceCircle);geofenceCircle=null;}
+    geofenceCircle=L.circle([v.latitude,v.longitude],{radius:v.geofence_radius_m||100,color:catColor(v.category),fillColor:catColor(v.category),fillOpacity:0.12,weight:1.5,dashArray:'4 4'}).addTo(map);
+  },300);
+}
+
+function copyCoords(id){
+  const v=venues.find(x=>x.id===id);
+  if(!v)return;
+  navigator.clipboard.writeText(`${v.latitude}, ${v.longitude}`).then(()=>toast('Coordinates copied'));
+}
+
+/* ── Dot Menu ───────────────────────────────────────────────────────────── */
+function toggleDotMenu(btn){
+  const dd=btn.nextElementSibling;
+  document.querySelectorAll('.dot-dropdown.show').forEach(d=>{if(d!==dd)d.classList.remove('show');});
+  dd.classList.toggle('show');
+}
+document.addEventListener('click',e=>{if(!e.target.closest('.dot-menu'))document.querySelectorAll('.dot-dropdown.show').forEach(d=>d.classList.remove('show'));});
+
+/* ── Drawer ──────────────────────────────────────────────────────────────── */
+function openDrawer(id){
+  editingVenue=venues.find(v=>v.id===id);
+  if(!editingVenue)return;
+  document.getElementById('drawer-title').textContent=editingVenue.name;
+  document.getElementById('drawer-overlay').classList.add('show');
+  document.getElementById('drawer').classList.add('show');
+  setDrawerTab('details');
+}
+function closeDrawer(){
+  document.getElementById('drawer-overlay').classList.remove('show');
+  document.getElementById('drawer').classList.remove('show');
+  editingVenue=null;
+  if(drawerMap){drawerMap.remove();drawerMap=null;drawerMarker=null;drawerCircle=null;}
+}
+
+function setDrawerTab(tab){
+  document.querySelectorAll('.drawer-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
+  const foot=document.getElementById('drawer-foot');
+  foot.style.display=tab==='details'?'':'none';
+  if(tab==='details')renderDetailsTab();
+  else if(tab==='activity')renderActivityTab();
+  else if(tab==='map')renderMapTab();
+}
+
+function renderDetailsTab(){
+  if(!editingVenue)return;
+  const v=editingVenue;
+  const catOpts=['restaurant','fast_food','cafe','bar','pub','theatre','cinema','pitch','marketplace','food_court','arts_centre','sports_centre','events_venue','nightclub','stadium'].map(c=>`<option value="${c}" ${v.category===c?'selected':''}>${catIcon(c)} ${c}</option>`).join('');
+  const tierChecked=t=>v.partner_tier===t?'checked':'';
+  document.getElementById('drawer-body').innerHTML=`
+    <div class="form-group"><label class="form-label">Name</label><input class="form-input" id="d-name" value="${esc(v.name||'')}"></div>
+    <div class="form-group"><label class="form-label">Address</label><input class="form-input" id="d-address" value="${esc(v.address||'')}"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">City</label><input class="form-input" id="d-city" value="${esc(v.city||'')}"></div>
+      <div class="form-group"><label class="form-label">State</label><input class="form-input" id="d-state" value="${esc(v.state||'')}"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Country</label><input class="form-input" id="d-country" value="${esc(v.country||'')}"></div>
+    <div class="form-group"><label class="form-label">Category</label><select class="form-input" id="d-category">${catOpts}</select></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Latitude</label><input class="form-input" id="d-lat" type="number" step="any" value="${v.latitude||''}"></div>
+      <div class="form-group"><label class="form-label">Longitude</label><input class="form-input" id="d-lng" type="number" step="any" value="${v.longitude||''}"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Geofence Radius (m)</label>
+      <div style="display:flex;gap:10px;align-items:center">
+        <input class="form-input" id="d-radius" type="number" min="25" max="5000" value="${v.geofence_radius_m||100}" style="width:100px" oninput="document.getElementById('d-radius-slider').value=this.value">
+        <input type="range" id="d-radius-slider" min="25" max="1000" value="${v.geofence_radius_m||100}" style="flex:1" oninput="document.getElementById('d-radius').value=this.value">
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Max Occupancy</label><input class="form-input" id="d-maxocc" type="number" min="0" value="${v.max_occupancy||''}"></div>
+    <div class="form-group">
+      <label class="form-label">Partner Tier</label>
+      <div class="tier-radios">
+        <label class="tier-radio"><input type="radio" name="d-tier" value="" ${!v.partner_tier?'checked':''}><span>None</span></label>
+        <label class="tier-radio"><input type="radio" name="d-tier" value="bronze" ${tierChecked('bronze')}><span>🥉 Bronze</span></label>
+        <label class="tier-radio"><input type="radio" name="d-tier" value="silver" ${tierChecked('silver')}><span>🥈 Silver</span></label>
+        <label class="tier-radio"><input type="radio" name="d-tier" value="gold" ${tierChecked('gold')}><span>🥇 Gold</span></label>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Custom Room Name</label><input class="form-input" id="d-room" value="${esc(v.custom_room_name||'')}" placeholder="Leave blank to use venue name"></div>
+    <div class="form-group"><label class="form-label">Welcome Message</label><textarea class="form-input" id="d-welcome">${esc(v.welcome_message||'')}</textarea></div>
+    <div class="form-group" style="display:flex;align-items:center;gap:10px">
+      <label class="form-label" style="margin:0">Active</label>
+      <label class="toggle-sw"><input type="checkbox" id="d-active" ${v.is_active?'checked':''}><span class="sw-track"></span><span class="sw-thumb"></span></label>
+    </div>`;
+}
+
+async function saveVenue(){
+  if(!editingVenue)return;
+  const btn=document.getElementById('drawer-save');
+  btn.innerHTML='<span class="spinner"></span>';btn.disabled=true;
+  const tierVal=document.querySelector('input[name="d-tier"]:checked')?.value||'';
+  const body={
+    name:document.getElementById('d-name').value,
+    address:document.getElementById('d-address').value,
+    city:document.getElementById('d-city').value,
+    state:document.getElementById('d-state').value,
+    country:document.getElementById('d-country').value,
+    category:document.getElementById('d-category').value,
+    latitude:parseFloat(document.getElementById('d-lat').value)||null,
+    longitude:parseFloat(document.getElementById('d-lng').value)||null,
+    geofence_radius_m:parseInt(document.getElementById('d-radius').value)||100,
+    max_occupancy:parseInt(document.getElementById('d-maxocc').value)||null,
+    partner_tier:tierVal||null,
+    is_partner:!!tierVal,
+    custom_room_name:document.getElementById('d-room').value||null,
+    welcome_message:document.getElementById('d-welcome').value||null,
+    is_active:document.getElementById('d-active').checked,
+  };
+  try{
+    const r=await fetch('/admin/api/hereya/venues/'+editingVenue.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json();
+    if(d.ok){toast('Venue saved');closeDrawer();loadVenues();}
+    else toast(d.error||'Save failed','error');
+  }catch(e){toast('Save failed','error');}
+  btn.innerHTML='Save Changes';btn.disabled=false;
+}
+
+async function renderActivityTab(){
+  if(!editingVenue)return;
+  document.getElementById('drawer-body').innerHTML='<div style="text-align:center;padding:24px"><span class="spinner"></span></div>';
+  try{
+    const data=await fetch('/admin/api/hereya/venues/'+editingVenue.id+'/activity').then(r=>r.json());
+    let html=`
+      <div class="act-stat"><span class="act-label">Total Rooms</span><span class="act-val">${data.total_rooms}</span></div>
+      <div class="act-stat"><span class="act-label">Total Messages</span><span class="act-val">${fmtNum(data.total_messages)}</span></div>
+      <div class="act-stat"><span class="act-label">Peak Occupancy</span><span class="act-val">${data.peak_occupancy}</span></div>
+      <div class="act-stat"><span class="act-label">Last Active</span><span class="act-val">${data.last_active?timeAgo(data.last_active):'Never'}</span></div>`;
+    if(data.recent_rooms?.length){
+      html+='<h4 style="margin:16px 0 8px;font-size:13px;color:var(--text-secondary)">Recent Rooms</h4><div class="act-rooms">';
+      for(const r of data.recent_rooms){
+        const sc=r.status==='active'?'ar-active':r.status==='warming'?'ar-warming':'ar-closed';
+        html+=`<div class="act-room"><span class="ar-status ${sc}">${r.status}</span> ${r.total_members||0} members · ${r.total_messages||0} msgs${r.activated_at?' · '+timeAgo(r.activated_at):''}</div>`;
+      }
+      html+='</div>';
+    }else{html+='<p style="color:var(--text-secondary);font-size:13px;margin-top:16px">No room activity</p>';}
+    document.getElementById('drawer-body').innerHTML=html;
+  }catch(e){document.getElementById('drawer-body').innerHTML='<p style="color:var(--text-secondary)">Failed to load activity</p>';}
+}
+
+function renderMapTab(){
+  if(!editingVenue)return;
+  const v=editingVenue;
+  document.getElementById('drawer-body').innerHTML=`
+    <div id="drawer-map"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Latitude</label><input class="form-input" id="dm-lat" type="number" step="any" value="${v.latitude||''}"></div>
+      <div class="form-group"><label class="form-label">Longitude</label><input class="form-input" id="dm-lng" type="number" step="any" value="${v.longitude||''}"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Geofence Radius (m)</label><input class="form-input" id="dm-radius" type="number" min="25" max="5000" value="${v.geofence_radius_m||100}" oninput="updateDrawerCircle()"></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="saveDrawerMap()">Save Location</button>`;
+  setTimeout(()=>{
+    if(drawerMap){drawerMap.remove();drawerMap=null;}
+    const lat=v.latitude||40.7128;const lng=v.longitude||-74.006;
+    drawerMap=L.map('drawer-map',{zoomControl:true}).setView([lat,lng],15);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(drawerMap);
+    drawerMarker=L.marker([lat,lng],{draggable:true}).addTo(drawerMap);
+    drawerCircle=L.circle([lat,lng],{radius:v.geofence_radius_m||100,color:'#6366f1',fillColor:'#6366f1',fillOpacity:0.12,weight:1.5}).addTo(drawerMap);
+    drawerMarker.on('dragend',()=>{
+      const pos=drawerMarker.getLatLng();
+      document.getElementById('dm-lat').value=pos.lat.toFixed(6);
+      document.getElementById('dm-lng').value=pos.lng.toFixed(6);
+      drawerCircle.setLatLng(pos);
+    });
+  },100);
+}
+
+function updateDrawerCircle(){
+  if(!drawerCircle)return;
+  const r=parseInt(document.getElementById('dm-radius').value)||100;
+  drawerCircle.setRadius(r);
+}
+
+async function saveDrawerMap(){
+  if(!editingVenue)return;
+  const body={
+    latitude:parseFloat(document.getElementById('dm-lat').value)||null,
+    longitude:parseFloat(document.getElementById('dm-lng').value)||null,
+    geofence_radius_m:parseInt(document.getElementById('dm-radius').value)||100,
+  };
+  try{
+    const r=await fetch('/admin/api/hereya/venues/'+editingVenue.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json();
+    if(d.ok){toast('Location saved');loadVenues();}else toast(d.error||'Failed','error');
+  }catch(e){toast('Save failed','error');}
+}
+
+function viewActivity(id){openDrawer(id);setTimeout(()=>setDrawerTab('activity'),100);}
+
+/* ── Export ──────────────────────────────────────────────────────────────── */
+function exportCSV(selectedOnly){
+  const params=getFilterParams();
+  if(selectedOnly&&selectedIds.size){
+    // For selected-only, we still use the full export but the user expects current filter context
+    // Since the export endpoint doesn't support id filtering, export all matching current filter
+  }
+  window.location.href='/admin/api/hereya/venues/export?'+params.toString();
+}
+
+/* ── Search Debounce ────────────────────────────────────────────────────── */
+let searchTimer;
+document.getElementById('f-search').oninput=()=>{clearTimeout(searchTimer);searchTimer=setTimeout(applyFilters,400);};
+
+/* ── Range Slider Change ────────────────────────────────────────────────── */
+let rangeTimer;
+document.getElementById('r-min').addEventListener('change',()=>{clearTimeout(rangeTimer);rangeTimer=setTimeout(applyFilters,300);});
+document.getElementById('r-max').addEventListener('change',()=>{clearTimeout(rangeTimer);rangeTimer=setTimeout(applyFilters,300);});
+
+/* ── Auto Refresh ───────────────────────────────────────────────────────── */
+function startRefresh(){clearInterval(refreshTimer);refreshTimer=setInterval(loadVenues,60000);}
+
+/* ── Init ───────────────────────────────────────────────────────────────── */
+(async function init(){
+  await loadFilterData();
+  setView(currentView);
+  await loadVenues();
+  startRefresh();
+})();
 </script>
 </body>
 </html>

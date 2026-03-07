@@ -26,6 +26,27 @@ async function sbFetch(path, opts = {}) {
   return { data, count: count ? parseInt(count) : null };
 }
 
+// ── Venue helpers ────────────────────────────────────────────────────────────
+let venueFilterCache = { data: null, ts: 0 };
+const CATEGORY_ICONS = { restaurant:'🍽️',fast_food:'🍔',cafe:'☕',bar:'🍸',pub:'🍺',theatre:'🎭',cinema:'🎬',pitch:'⚽',marketplace:'🛒',food_court:'🥡',arts_centre:'🎨',sports_centre:'🏅',events_venue:'🎪',nightclub:'🪩',stadium:'🏟️' };
+const VENUE_SELECT = 'id,created_at,updated_at,foursquare_id,name,address,city,state,country,category,latitude,longitude,geofence_radius_m,geofence_polygon,is_active,is_partner,partner_tier,custom_room_name,welcome_message,max_occupancy,foursquare_synced_at,osm_id,osm_synced_at';
+function buildVenueFilters(query) {
+  const { q, state, city, category, partner_tier, active = 'true', radius_min, radius_max } = query;
+  const filters = [];
+  if (active === 'true') filters.push('is_active=eq.true');
+  else if (active === 'false') filters.push('is_active=eq.false');
+  if (state) { const vals = state.split(',').map(s => s.trim()).filter(Boolean); if (vals.length) filters.push(`state=in.(${vals.join(',')})`); }
+  if (city) { const vals = city.split(',').map(s => s.trim()).filter(Boolean); if (vals.length) filters.push(`city=in.(${vals.join(',')})`); }
+  if (category) { const vals = category.split(',').map(s => s.trim()).filter(Boolean); if (vals.length) filters.push(`category=in.(${vals.join(',')})`); }
+  if (partner_tier === 'none') filters.push('partner_tier=is.null');
+  else if (['bronze','silver','gold'].includes(partner_tier)) filters.push(`partner_tier=eq.${partner_tier}`);
+  else if (partner_tier === 'any_partner') filters.push('partner_tier=not.is.null');
+  if (radius_min) filters.push(`geofence_radius_m=gte.${parseInt(radius_min)}`);
+  if (radius_max) filters.push(`geofence_radius_m=lte.${parseInt(radius_max)}`);
+  if (q) { const term = q.replace(/[(),]/g, ' ').trim(); if (term) filters.push(`or=(name.ilike.*${encodeURIComponent(term)}*,address.ilike.*${encodeURIComponent(term)}*)`); }
+  return filters.length ? '&' + filters.join('&') : '';
+}
+
 const pool = new Pool({
   host: process.env.DB_HOST || 'netsudo-postgres',
   database: process.env.DB_NAME || 'netsudo',
@@ -776,19 +797,120 @@ app.get('/admin/api/hereya/stats', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── Venue Management (Enterprise) ─────────────────────────────────────────────
 app.get('/admin/api/hereya/venues', requireAuth, async (req, res) => {
   try {
-    const { search, category, city, partner, page } = req.query;
-    const limit = 50;
-    const offset = ((parseInt(page) || 1) - 1) * limit;
-    let query = `venues?select=id,name,category,city,state,latitude,longitude,geofence_radius_m,is_active,is_partner,osm_id,osm_synced_at&is_active=eq.true&order=name.asc&limit=${limit}&offset=${offset}`;
-    if (search) query += `&name=ilike.*${encodeURIComponent(search)}*`;
-    if (category) query += `&category=eq.${encodeURIComponent(category)}`;
-    if (city) query += `&city=eq.${encodeURIComponent(city)}`;
-    if (partner === 'true') query += '&is_partner=eq.true';
-    if (partner === 'false') query += '&is_partner=eq.false';
+    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+    const pg = parseInt(req.query.page) || 1;
+    const offset = (pg - 1) * limit;
+    const sortDir = req.query.dir === 'desc' ? 'desc' : 'asc';
+    const validSorts = ['name','city','state','category','geofence_radius_m','created_at'];
+    const sortField = validSorts.includes(req.query.sort) ? req.query.sort : 'name';
+    const filterStr = buildVenueFilters(req.query);
+    const query = `venues?select=${VENUE_SELECT}&order=${sortField}.${sortDir}&limit=${limit}&offset=${offset}${filterStr}`;
     const result = await sbFetch(query);
-    res.json({ venues: result.data || [], total: result.count || 0 });
+    const total = result.count || 0;
+    res.json({ venues: result.data || [], total, page: pg, pages: Math.ceil(total / limit) || 1, limit });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/admin/api/hereya/venues/filters', requireAuth, async (req, res) => {
+  try {
+    const now = Date.now();
+    if (venueFilterCache.data && now - venueFilterCache.ts < 60000) return res.json(venueFilterCache.data);
+    const result = await sbFetch('venues?select=state,city,category,partner_tier&limit=10000');
+    const rows = result.data || [];
+    const stateMap = {}, cityMap = {}, catMap = {}, tierMap = {};
+    for (const r of rows) {
+      if (r.state) stateMap[r.state] = (stateMap[r.state] || 0) + 1;
+      if (r.city) {
+        const key = `${r.state}||${r.city}`;
+        if (!cityMap[key]) cityMap[key] = { state: r.state, value: r.city, count: 0 };
+        cityMap[key].count++;
+      }
+      if (r.category) {
+        if (!catMap[r.category]) catMap[r.category] = { value: r.category, count: 0, icon: CATEGORY_ICONS[r.category] || '📍' };
+        catMap[r.category].count++;
+      }
+      if (r.partner_tier) tierMap[r.partner_tier] = (tierMap[r.partner_tier] || 0) + 1;
+    }
+    const data = {
+      states: Object.entries(stateMap).map(([value, count]) => ({ value, count })).sort((a, b) => b.count - a.count),
+      cities: Object.values(cityMap).sort((a, b) => b.count - a.count),
+      categories: Object.values(catMap).sort((a, b) => b.count - a.count),
+      partner_tiers: Object.entries(tierMap).map(([value, count]) => ({ value, count })).sort((a, b) => b.count - a.count),
+    };
+    venueFilterCache = { data, ts: now };
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/admin/api/hereya/venues/export', requireAuth, async (req, res) => {
+  try {
+    const filterStr = buildVenueFilters(req.query);
+    const query = `venues?select=id,name,address,city,state,country,category,latitude,longitude,geofence_radius_m,is_active,partner_tier,max_occupancy,osm_id&order=name.asc&limit=10000${filterStr}`;
+    const result = await sbFetch(query);
+    const cols = ['id','name','address','city','state','country','category','latitude','longitude','geofence_radius_m','is_active','partner_tier','max_occupancy','osm_id'];
+    const csvEsc = v => { if (v == null) return ''; const s = String(v); return /[,"\n\r]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s; };
+    let csv = cols.join(',') + '\n';
+    for (const v of (result.data || [])) csv += cols.map(c => csvEsc(v[c])).join(',') + '\n';
+    const date = new Date().toISOString().split('T')[0];
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="hereya-venues-${date}.csv"`);
+    res.send(csv);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/admin/api/hereya/venues/bulk', requireAuth, async (req, res) => {
+  const { ids, action, value } = req.body;
+  if (!ids?.length || !action) return res.status(400).json({ error: 'ids and action required' });
+  try {
+    let body;
+    if (action === 'activate') body = { is_active: true };
+    else if (action === 'deactivate') body = { is_active: false };
+    else if (action === 'set_partner_tier') body = { partner_tier: value || null, is_partner: !!value };
+    else if (action === 'set_radius') body = { geofence_radius_m: parseInt(value) };
+    else return res.status(400).json({ error: 'Invalid action' });
+    body.updated_at = new Date().toISOString();
+    let updated = 0;
+    for (const id of ids) {
+      await fetch(`${SUPABASE_URL}/rest/v1/venues?id=eq.${id}`, { method: 'PATCH', headers: SB_HEADERS, body: JSON.stringify(body) });
+      updated++;
+    }
+    res.json({ ok: true, updated });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.patch('/admin/api/hereya/venues/:id', requireAuth, async (req, res) => {
+  const allowed = ['name','address','city','state','country','category','latitude','longitude','geofence_radius_m','is_active','is_partner','partner_tier','custom_room_name','welcome_message','max_occupancy'];
+  const updates = {};
+  for (const k of allowed) if (req.body[k] !== undefined) updates[k] = req.body[k];
+  if (!Object.keys(updates).length) return res.status(400).json({ error: 'No valid fields' });
+  updates.updated_at = new Date().toISOString();
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/venues?id=eq.${req.params.id}`, {
+      method: 'PATCH', headers: { ...SB_HEADERS, 'Prefer': 'return=representation' }, body: JSON.stringify(updates),
+    });
+    const venue = (await r.json())?.[0];
+    res.json({ ok: true, venue });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/admin/api/hereya/venues/:id/activity', requireAuth, async (req, res) => {
+  try {
+    const result = await sbFetch(`rooms?select=id,status,total_members,total_messages,activated_at,closed_at,peak_occupancy&venue_id=eq.${req.params.id}&order=activated_at.desc&limit=20`);
+    const rooms = result.data || [];
+    let totalMessages = 0, peakOccupancy = 0, lastActive = null;
+    for (const r of rooms) {
+      totalMessages += r.total_messages || 0;
+      if ((r.peak_occupancy || 0) > peakOccupancy) peakOccupancy = r.peak_occupancy;
+      const ts = r.closed_at || r.activated_at;
+      if (ts && (!lastActive || ts > lastActive)) lastActive = ts;
+    }
+    res.json({
+      total_rooms: rooms.length, total_messages: totalMessages, peak_occupancy: peakOccupancy, last_active: lastActive,
+      recent_rooms: rooms.slice(0, 10).map(r => ({ id: r.id, status: r.status, total_members: r.total_members, total_messages: r.total_messages, activated_at: r.activated_at, closed_at: r.closed_at })),
+    });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -904,27 +1026,7 @@ app.post('/admin/api/hereya/waitlist/blast', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.patch('/admin/api/hereya/venues/:id/partner', requireAuth, async (req, res) => {
-  try {
-    const get = await sbFetch(`venues?select=is_partner&id=eq.${req.params.id}`);
-    const current = get.data?.[0]?.is_partner || false;
-    await fetch(`${SUPABASE_URL}/rest/v1/venues?id=eq.${req.params.id}`, {
-      method: 'PATCH', headers: SB_HEADERS, body: JSON.stringify({ is_partner: !current }),
-    });
-    res.json({ ok: true, is_partner: !current });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.patch('/admin/api/hereya/venues/:id/geofence', requireAuth, async (req, res) => {
-  const { geofence_radius_m } = req.body;
-  if (!geofence_radius_m || isNaN(parseInt(geofence_radius_m))) return res.status(400).json({ error: 'Valid radius required' });
-  try {
-    await fetch(`${SUPABASE_URL}/rest/v1/venues?id=eq.${req.params.id}`, {
-      method: 'PATCH', headers: SB_HEADERS, body: JSON.stringify({ geofence_radius_m: parseInt(geofence_radius_m) }),
-    });
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
+/* old partner/geofence endpoints replaced by PATCH /admin/api/hereya/venues/:id */
 
 app.post('/admin/api/hereya/users/:id/suspend', requireAuth, async (req, res) => {
   try {
